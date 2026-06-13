@@ -102,24 +102,6 @@ function FadeByDistance({ children, position, fadeStart = 20, fadeEnd = 40 }: { 
   return <group ref={ref}>{children}</group>;
 }
 
-function RevealWhenNear({ children, position, inner = 12, outer = 24 }: { children: ReactNode; position: [number, number, number]; inner?: number; outer?: number }) {
-  const ref = useRef<THREE.Group>(null);
-  const originals = useRef<OriginalStore>({ mats: new Map(), lights: new Map() });
-  useFrame((state) => {
-    if (!ref.current) return;
-    const camPos = state.camera.position;
-    const target = new THREE.Vector3(position[0], position[1], position[2]);
-    const d = camPos.distanceTo(target);
-    // fade in when inside outer, full visible inside inner
-    let t = 0;
-    if (d <= inner) t = 1;
-    else if (d < outer) t = 1 - (d - inner) / (outer - inner);
-    else t = 0;
-    applyGroupOpacity(ref.current, t, originals.current);
-  });
-  return <group ref={ref}>{children}</group>;
-}
-
 function SceneContent() {
   const profile = useDeviceProfile();
   const q = profile.quality;

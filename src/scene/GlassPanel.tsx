@@ -40,7 +40,7 @@ export function GlassPanel({
   const t = useRef(0);
   const [w, h] = size;
 
-  useFrame((state, delta) => {
+  useFrame((_state, delta) => {
     t.current += delta;
     const group = groupRef.current;
     const inner = innerRef.current;
@@ -61,7 +61,6 @@ export function GlassPanel({
   const bodyY = hero ? -0.58 : -0.6;
   const tagY = hero ? -h / 2 + 0.52 : -h / 2 + 0.4;
   const titleY = hero ? 0.20 : -0.02;
-  const indexY = h / 2 - 0.36;
   const accentY = hero ? -h / 2 + 0.30 : -h / 2 + 0.24;
   const bodyFontSize = hero ? 0.10 : 0.09;
   const bodyMaxWidth = w - 0.8;
