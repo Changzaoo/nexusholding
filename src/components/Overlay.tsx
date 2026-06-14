@@ -17,12 +17,18 @@ function fadeWindow(p: number, a: number, b: number, c: number, d: number) {
  * aditivo (que é translúcido), este cobre a tela por completo — é durante
  * esse instante 100% branco que os planetas são revelados na cena 3D
  * (ver ExperienceCanvas), garantindo que nunca sejam vistos "spawnando".
- *  sobe 0.165→0.20 · SEGURA OPACO 0.20→0.235 · some 0.235→0.285
- *  (a saída lenta dura mais que o brilho radial 3D, então o branco
- *   UNIFORME cobre as bordas/topo até a cena emergir por igual)
+ *  sobe 0.165->0.20, segura opaco 0.20->0.245 e sai limpo em 0.252.
+ *  A saida nao usa uma cauda semi-transparente longa para o branco nao
+ *  virar cinza sobre o espaco escuro.
  */
 function warpBlink(p: number) {
-  return fadeWindow(p, 0.165, 0.2, 0.235, 0.285);
+  if (p <= 0.165 || p >= 0.252) return 0;
+  if (p < 0.2) return (p - 0.165) / (0.2 - 0.165);
+  if (p <= 0.245) return 1;
+
+  // A long translucent white overlay reads as gray over deep space.
+  // Keep the travel climax white-hot, then reveal the scene cleanly.
+  return 0;
 }
 
 /**

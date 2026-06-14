@@ -136,6 +136,7 @@ export function WarpEffect() {
         vertexShader: VERTEX,
         fragmentShader: FRAGMENT,
         transparent: true,
+        toneMapped: false,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
         fog: false,
@@ -162,9 +163,10 @@ export function WarpEffect() {
     const ctx = cv.getContext('2d')!;
     const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
     g.addColorStop(0, 'rgba(255,255,255,1)');
-    g.addColorStop(0.12, 'rgba(200,230,255,0.7)');
-    g.addColorStop(0.35, 'rgba(100,170,255,0.18)');
-    g.addColorStop(1, 'rgba(65,232,255,0)');
+    g.addColorStop(0.16, 'rgba(255,255,255,1)');
+    g.addColorStop(0.42, 'rgba(255,255,255,0.5)');
+    g.addColorStop(0.72, 'rgba(255,255,255,0.14)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, s, s);
     const t = new THREE.CanvasTexture(cv);
@@ -176,10 +178,13 @@ export function WarpEffect() {
     () =>
       new THREE.SpriteMaterial({
         map: flashTex,
+        color: '#ffffff',
         transparent: true,
         opacity: 0,
         blending: THREE.AdditiveBlending,
+        depthTest: false,
         depthWrite: false,
+        toneMapped: false,
         fog: false,
       }),
     [flashTex],
@@ -212,8 +217,8 @@ export function WarpEffect() {
     }
     // aparece durante a aproximação e estoura ao chegar perto, sumindo ao passar
     const rise = THREE.MathUtils.smoothstep(wp, 0.12, 0.55);
-    const pass = 1 - THREE.MathUtils.smoothstep(wp, 0.9, 1.0);
-    flashMat.opacity = rise * pass;
+    const pass = 1 - THREE.MathUtils.smoothstep(wp, 0.9, 0.98);
+    flashMat.opacity = Math.min(1, rise * pass * 1.35);
   });
 
   return (
@@ -228,6 +233,7 @@ export function WarpEffect() {
         ref={spriteRef}
         material={flashMat}
         position={[0, 0.5, -10]}
+        renderOrder={999}
       />
     </group>
   );
