@@ -7,9 +7,11 @@ import { Overlay } from './components/Overlay';
 import { SideIndex } from './components/SideIndex';
 import { AdminLogin } from './components/AdminLogin';
 import { AdminDashboard } from './components/AdminDashboard';
+import { LeadForm } from './components/LeadForm';
 import { useSecretAdminTrigger } from './hooks/useSecretAdminTrigger';
+import { useSecretKeyboardLogin } from './hooks/useSecretKeyboardLogin';
 import { useDeviceProfile } from './hooks/useDeviceProfile';
-import { watchAuth } from './lib/firebase';
+import { adminSignIn, watchAuth } from './lib/firebase';
 import { scrollState } from './lib/scrollState';
 import type { AdminUser } from './types/admin';
 
@@ -29,6 +31,7 @@ export default function App() {
   const [user, setUser] = useState<AdminUser | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [dashboardOpen, setDashboardOpen] = useState(false);
+  const [showLeadForm, setShowLeadForm] = useState(false);
 
   useEffect(
     () =>
@@ -44,6 +47,21 @@ export default function App() {
     if (user) setDashboardOpen(true);
     else setShowLogin(true);
   });
+
+  // login secreto por teclado: e-mail + Enter → senha + Enter → entra direto.
+  // mesmo efeito de preencher o modal aberto pelo "G" por 10s.
+  useSecretKeyboardLogin(async (email, password) => {
+    if (user) {
+      setDashboardOpen(true);
+      return;
+    }
+    try {
+      await adminSignIn(email, password);
+      setDashboardOpen(true);
+    } catch {
+      // falha silenciosa (credenciais inválidas) — mantém o acesso oculto
+    }
+  }, !dashboardOpen);
 
   // ------------------------------------------- smooth scroll (Lenis)
   useEffect(() => {
@@ -82,9 +100,9 @@ export default function App() {
   useEffect(() => {
     const lenis = lenisRef.current;
     if (!lenis) return;
-    if (showLogin || dashboardOpen) lenis.stop();
+    if (showLogin || dashboardOpen || showLeadForm) lenis.stop();
     else lenis.start();
-  }, [showLogin, dashboardOpen]);
+  }, [showLogin, dashboardOpen, showLeadForm]);
 
   return (
     <div id="top">
@@ -105,7 +123,7 @@ export default function App() {
       <div className="fx-overlay" aria-hidden />
 
       <Header />
-      <Overlay />
+      <Overlay onOpenLeadForm={() => setShowLeadForm(true)} />
       <SideIndex />
 
       {/* trilho de scroll — a altura define a duração da viagem 3D */}
@@ -113,6 +131,9 @@ export default function App() {
         style={{ height: profile.isMobile ? '800vh' : '1000vh' }}
         aria-hidden
       />
+
+      {/* formulário de captação (Raio-X Digital) */}
+      {showLeadForm && <LeadForm onClose={() => setShowLeadForm(false)} />}
 
       {/* ------------------------------------------ camada do admin */}
       {showLogin && !dashboardOpen && (

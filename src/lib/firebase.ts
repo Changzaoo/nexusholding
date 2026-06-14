@@ -18,6 +18,7 @@ import {
   type Auth,
   type User,
 } from 'firebase/auth';
+import { getFirestore, type Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyD-jy0zCN6v_I7yR7qBOj8X35MIezTE_n4',
@@ -36,6 +37,7 @@ export const isFirebaseConfigured = !Object.values(firebaseConfig).some((v) =>
 
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
+let db: Firestore | null = null;
 
 function getFirebaseAuth(): Auth {
   if (!auth) {
@@ -43,6 +45,16 @@ function getFirebaseAuth(): Auth {
     auth = getAuth(app);
   }
   return auth;
+}
+
+/** Firestore (ou null se o Firebase não estiver configurado). */
+export function getDb(): Firestore | null {
+  if (!isFirebaseConfigured) return null;
+  if (!db) {
+    getFirebaseAuth(); // garante app inicializado
+    db = getFirestore(app!);
+  }
+  return db;
 }
 
 /** Login do admin via e-mail/senha (Firebase Auth). */

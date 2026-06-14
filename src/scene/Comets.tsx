@@ -134,10 +134,10 @@ export function Comets({ comets = 2, meteors = 5 }: Props) {
   return (
     <group>
       {Array.from({ length: comets }, (_, i) => (
-        <Streak key={`c${i}`} tex={tex} color="#bfeaff" len={6} width={0.7} speed={5} headSize={0.16} zBand={[-30, -8]} delayMax={9} />
+        <Streak key={`c${i}`} tex={tex} color={i % 2 ? '#cfe0ff' : '#bfeaff'} len={6.5} width={0.75} speed={5} headSize={0.17} zBand={[-72, -8]} delayMax={8} />
       ))}
       {Array.from({ length: meteors }, (_, i) => (
-        <Streak key={`m${i}`} tex={tex} color="#ffffff" len={3.2} width={0.18} speed={22} headSize={0.06} zBand={[-26, -4]} delayMax={6} />
+        <Streak key={`m${i}`} tex={tex} color={i % 3 === 0 ? '#ffe6c4' : '#ffffff'} len={3.4} width={0.18} speed={20 + (i % 4) * 5} headSize={0.06} zBand={[-96, -4]} delayMax={4} />
       ))}
     </group>
   );

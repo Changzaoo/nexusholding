@@ -132,6 +132,7 @@ function bodyFragment(type: PlanetType) {
     uniform float uTime;
     uniform float uSeed;
     uniform float uBump;
+    uniform float uOpacity;
     uniform mat3 uModelMat3;
     ${NOISE_GLSL}
 
@@ -185,7 +186,7 @@ function bodyFragment(type: PlanetType) {
       float term = smoothstep(0.0, 0.3, ndl) * (1.0 - smoothstep(0.3, 0.65, ndl));
       col += term * vec3(0.25, 0.15, 0.08) * 0.5;
 
-      gl_FragColor = vec4(col, 1.0);
+      gl_FragColor = vec4(col * uOpacity, 1.0);
     }
   `;
 }
@@ -245,6 +246,7 @@ export function Planet({
           uTime: { value: 0 },
           uSeed: { value: seed },
           uBump: { value: bumpStrength },
+          uOpacity: { value: 1 },
           uModelMat3: { value: new THREE.Matrix3() },
         },
       }),
@@ -261,11 +263,12 @@ export function Planet({
       uniforms: {
         uSunPos: { value: new THREE.Vector3(...sunPosition) },
         uTime: { value: 0 },
+        uOpacity: { value: 1 },
       },
       vertexShader: VERT,
       fragmentShader: /* glsl */ `
         varying vec3 vLocal; varying vec3 vPosW; varying vec3 vNormalW;
-        uniform vec3 uSunPos; uniform float uTime;
+        uniform vec3 uSunPos; uniform float uTime; uniform float uOpacity;
         ${NOISE_GLSL}
         void main() {
           float c = fbm(vLocal * 2.6 + vec3(uTime * 0.02, 0.0, 0.0));
@@ -274,7 +277,7 @@ export function Planet({
           vec3 N = normalize(vNormalW);
           vec3 L = normalize(uSunPos - vPosW);
           float light = smoothstep(-0.1, 0.3, dot(N, L)) * 0.9 + 0.08;
-          gl_FragColor = vec4(vec3(1.0) * light, cover * 0.8);
+          gl_FragColor = vec4(vec3(1.0) * light, cover * 0.8 * uOpacity);
         }
       `,
     });
@@ -292,18 +295,19 @@ export function Planet({
         uniforms: {
           uColor: { value: new THREE.Color(atmoColor) },
           uSunPos: { value: new THREE.Vector3(...sunPosition) },
+          uOpacity: { value: 1 },
         },
         vertexShader: VERT,
         fragmentShader: /* glsl */ `
           varying vec3 vLocal; varying vec3 vPosW; varying vec3 vNormalW;
-          uniform vec3 uColor; uniform vec3 uSunPos;
+          uniform vec3 uColor; uniform vec3 uSunPos; uniform float uOpacity;
           void main() {
             vec3 N = normalize(vNormalW);
             vec3 V = normalize(cameraPosition - vPosW);
             vec3 L = normalize(uSunPos - vPosW);
             float rim = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 3.0);
             float sun = clamp(dot(N, L) + 0.3, 0.0, 1.0);
-            gl_FragColor = vec4(uColor, rim * (0.22 + 0.48 * sun));
+            gl_FragColor = vec4(uColor, rim * (0.22 + 0.48 * sun) * uOpacity);
           }
         `,
       }),
@@ -323,6 +327,7 @@ export function Planet({
         uColor: { value: new THREE.Color(ringColor) },
         uInner: { value: inner },
         uOuter: { value: outer },
+        uOpacity: { value: 1 },
       },
       vertexShader: /* glsl */ `
         varying float vR;
@@ -333,7 +338,7 @@ export function Planet({
       `,
       fragmentShader: /* glsl */ `
         varying float vR;
-        uniform vec3 uColor; uniform float uInner; uniform float uOuter;
+        uniform vec3 uColor; uniform float uInner; uniform float uOuter; uniform float uOpacity;
         ${NOISE_GLSL}
         void main() {
           float f = (vR - uInner) / (uOuter - uInner);
@@ -343,7 +348,7 @@ export function Planet({
           float gap = smoothstep(0.40, 0.45, abs(f - 0.52));
           float edge = smoothstep(0.0, 0.05, f) * (1.0 - smoothstep(0.93, 1.0, f));
           float a = edge * gap * detail * (0.22 + 0.5 * bands);
-          gl_FragColor = vec4(uColor * (0.7 + 0.5 * bands), a);
+          gl_FragColor = vec4(uColor * (0.7 + 0.5 * bands), a * uOpacity);
         }
       `,
     });

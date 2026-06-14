@@ -13,12 +13,29 @@ function fadeWindow(p: number, a: number, b: number, c: number, d: number) {
 }
 
 /**
+ * Flash branco TOTALMENTE OPACO no clímax da viagem. Diferente do brilho
+ * aditivo (que é translúcido), este cobre a tela por completo — é durante
+ * esse instante 100% branco que os planetas são revelados na cena 3D
+ * (ver ExperienceCanvas), garantindo que nunca sejam vistos "spawnando".
+ *  sobe 0.165→0.20 · SEGURA OPACO 0.20→0.235 · some 0.235→0.285
+ *  (a saída lenta dura mais que o brilho radial 3D, então o branco
+ *   UNIFORME cobre as bordas/topo até a cena emergir por igual)
+ */
+function warpBlink(p: number) {
+  return fadeWindow(p, 0.165, 0.2, 0.235, 0.285);
+}
+
+/**
  * Camada HTML sobre o canvas: tagline inicial, título editorial gigante
  * ("CREATIVE DIGITAL EXPERIENCES", surge ~20%), hint de scroll e a cena
  * final ("BUILDING THE NEXT INTERFACE" + CTA, ~100%). Opacidade/posição
  * dirigidas pelo progresso de scroll (useScrollProgress).
  */
-export function Overlay() {
+interface OverlayProps {
+  onOpenLeadForm: () => void;
+}
+
+export function Overlay({ onOpenLeadForm }: OverlayProps) {
   const p = useScrollProgress();
   const introRef = useRef<HTMLDivElement>(null);
 
@@ -40,6 +57,14 @@ export function Overlay() {
 
   return (
     <>
+      {/* flash branco opaco do salto — cobre tudo enquanto os planetas
+          são revelados por trás (sem o usuário ver eles renderizando) */}
+      <div
+        className="pointer-events-none fixed -inset-10 z-[45]"
+        style={{ opacity: warpBlink(p), background: '#ffffff' }}
+        aria-hidden
+      />
+
       {/* ----------------------------------- tagline inicial (0%) */}
       <div
         ref={introRef}
@@ -77,12 +102,10 @@ export function Overlay() {
           </p>
 
           <div className="mt-6 flex gap-4 items-center justify-center pointer-events-auto">
-            <a href="#contact" className="pill-button">
+            <button onClick={onOpenLeadForm} className="pill-button !border-neon-cyan/50">
               {siteContent.hero.exploreLabel}
-            </a>
-            <a href="#contact" className="pill-button">
-              Conhecer o Programa Nexus Digital 90
-            </a>
+              <span className="text-neon-cyan">→</span>
+            </button>
           </div>
         </div>
       </div>
@@ -108,13 +131,13 @@ export function Overlay() {
         <h2 className="font-display max-w-4xl px-6 text-center text-5xl leading-[0.92] font-bold tracking-[-0.02em] text-white uppercase md:text-7xl">
           <GlitchText>{siteContent.final.title}</GlitchText>
         </h2>
-        <a
-          href={`mailto:${siteContent.final.contactEmail}`}
+        <button
+          onClick={onOpenLeadForm}
           className="pill-button mt-10 !border-neon-cyan/50 !px-10 !py-4"
         >
           {siteContent.final.ctaLabel}
           <span className="text-neon-cyan">→</span>
-        </a>
+        </button>
         <div className="mt-8 font-mono text-[9px] tracking-[0.4em] text-white/30 uppercase">
           {siteContent.company} © 2026
         </div>

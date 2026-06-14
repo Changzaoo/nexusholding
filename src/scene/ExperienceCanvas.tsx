@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, type ReactNode } from 'react';
+import { Suspense, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment, Lightformer } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
@@ -28,6 +28,13 @@ const SUN_POS: [number, number, number] = [-9, 4.5, -6];
 // restore visibility and fade materials/lights according to original values.
 type OriginalStore = { mats: Map<string, number>; lights: Map<string, number> };
 
+// smootherstep (5ª ordem): aceleração/desaceleração suave nas pontas →
+// materialização cinematográfica sem "degraus" de opacidade.
+function smoother(t: number) {
+  const x = THREE.MathUtils.clamp(t, 0, 1);
+  return x * x * x * (x * (x * 6 - 15) + 10);
+}
+
 function applyGroupOpacity(group: THREE.Object3D | null, opacityFactor: number, originals: OriginalStore) {
   if (!group) return;
   if (opacityFactor <= 0) {
@@ -44,6 +51,13 @@ function applyGroupOpacity(group: THREE.Object3D | null, opacityFactor: number, 
       const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
       mats.forEach((m: any) => {
         if (!m) return;
+        // shaders procedurais (planetas/terra/lua/sol) respeitam uOpacity:
+        // fade real no fragmento, sem depender de material.opacity.
+        const uo = m.uniforms?.uOpacity;
+        if (uo) {
+          uo.value = opacityFactor;
+          return;
+        }
         if (typeof m.opacity === 'number') {
           if (!originals.mats.has(m.uuid)) originals.mats.set(m.uuid, m.opacity);
           const orig = originals.mats.get(m.uuid) ?? 1;
@@ -68,9 +82,30 @@ function RevealOnScroll({ children }: { children: ReactNode }) {
   useFrame(() => {
     if (!ref.current) return;
     const p = scrollState.progress;
-    // planets start appearing only AFTER the warp effect ends (~0.26)
-    const t = THREE.MathUtils.clamp((p - 0.26) / (0.34 - 0.26), 0, 1);
+    // os planetas são revelados ENQUANTO o flash branco OPACO cobre 100%
+    // da tela (warpBlink segura opaco em p=0.20→0.235, ver Overlay).
+    // Concluído em 0.23 → quando o branco some, já estão prontos. Nunca
+    // são vistos "spawnando".
+    const t = smoother((p - 0.2) / (0.23 - 0.2));
     applyGroupOpacity(ref.current, t, originals.current);
+  });
+  return <group ref={ref}>{children}</group>;
+}
+
+/** Janela completa: invisível fora de [a,d]; entra a→b, segura b→c, sai c→d. */
+function TimeWindow({ children, a, b, c, d }: { children: ReactNode; a: number; b: number; c: number; d: number }) {
+  const ref = useRef<THREE.Group>(null);
+  const originals = useRef<OriginalStore>({ mats: new Map(), lights: new Map() });
+  useFrame(() => {
+    if (!ref.current) return;
+    const p = scrollState.progress;
+    let t = 0;
+    if (p > a && p < d) {
+      if (p < b) t = (p - a) / (b - a);
+      else if (p > c) t = 1 - (p - c) / (d - c);
+      else t = 1;
+    }
+    applyGroupOpacity(ref.current, smoother(t), originals.current);
   });
   return <group ref={ref}>{children}</group>;
 }
@@ -82,8 +117,8 @@ function VisibleRange({ children, start = 0, end = 1 }: { children: ReactNode; s
     if (!ref.current) return;
     const p = scrollState.progress;
     const t = end > start
-      ? THREE.MathUtils.clamp((p - start) / (end - start), 0, 1)  // fade-in
-      : THREE.MathUtils.clamp(1 - (p - end) / (start - end), 0, 1); // fade-out (start > end)
+      ? smoother((p - start) / (end - start))  // fade-in
+      : smoother(1 - (p - end) / (start - end)); // fade-out (start > end)
     applyGroupOpacity(ref.current, t, originals.current);
   });
   return <group ref={ref}>{children}</group>;
@@ -93,11 +128,18 @@ function VisibleRange({ children, start = 0, end = 1 }: { children: ReactNode; s
 function FadeByDistance({ children, position, fadeStart = 20, fadeEnd = 40 }: { children: ReactNode; position: [number, number, number]; fadeStart?: number; fadeEnd?: number }) {
   const ref = useRef<THREE.Group>(null);
   const originals = useRef<OriginalStore>({ mats: new Map(), lights: new Map() });
-  useFrame((state) => {
+  const pos = useMemo(() => new THREE.Vector3(position[0], position[1], position[2]), [position]);
+  const cur = useRef(0);
+  useFrame((state, delta) => {
     if (!ref.current) return;
-    const d = state.camera.position.distanceTo(new THREE.Vector3(position[0], position[1], position[2]));
-    const t = 1 - THREE.MathUtils.clamp((d - fadeStart) / (fadeEnd - fadeStart), 0, 1);
-    applyGroupOpacity(ref.current, t, originals.current);
+    const d = state.camera.position.distanceTo(pos);
+    // alvo eased por distância (fade-in ao aproximar)
+    const target = smoother(1 - (d - fadeStart) / (fadeEnd - fadeStart));
+    // amortecimento temporal → transição trailing, sem saltos por frame
+    cur.current = THREE.MathUtils.damp(cur.current, target, 4, delta);
+    // snap nas pontas: 0 esconde o grupo (sem render), 1 evita resíduo
+    const eff = cur.current < 0.004 ? 0 : cur.current > 0.997 ? 1 : cur.current;
+    applyGroupOpacity(ref.current, eff, originals.current);
   });
   return <group ref={ref}>{children}</group>;
 }
@@ -112,12 +154,12 @@ function SceneContent() {
 
       {/* ============================ ESPAÇO SIDERAL ============================ */}
       {/* GALÁXIA (Via Láctea) — visível no topo (p=0), desaparece durante a viagem na luz (p=0→0.24). */}
-      <VisibleRange start={0.24} end={0}>
-        <Galaxy count={profile.isMobile ? 1800 : 3500} position={[0, 6, -180]} rotation={[1.2, 0, 0.4]} radius={140} />
+      <VisibleRange start={0.36} end={0}>
+        <Galaxy count={profile.isMobile ? 3200 : 9000} position={[0, 6, -180]} rotation={[1.2, 0, 0.4]} radius={150} />
       </VisibleRange>
 
       {/* campo de estrelas distante envolvendo toda a jornada */}
-      <Starfield count={profile.isMobile ? 700 : 1600} />
+      <Starfield count={profile.isMobile ? 900 : 2400} />
 
       {/* efeito de viagem na luz — 3000 partículas, p=0.02→0.26 */}
       <WarpEffect />
@@ -148,16 +190,18 @@ function SceneContent() {
           FadeByDistance com fadeStart=0 garante que tudo apareça mesmo de longe.
           fadeEnd grande para transição suave ao se aproximar — sem pop-in. */}
       <RevealOnScroll>
-        {/* grupo solar: Sun + Earth + asteroides */}
-        <FadeByDistance position={SUN_POS} fadeStart={0} fadeEnd={30}>
+        {/* grupo solar: Sun + Earth */}
+        <FadeByDistance position={SUN_POS} fadeStart={2} fadeEnd={52}>
           <Sun position={SUN_POS} radius={2.2} lightIntensity={profile.isMobile ? 300 : 520} quality={q} />
           <EarthSystem position={[3.5, -0.3, -9]} radius={2.6} sunPosition={SUN_POS} quality={q} />
-          <Asteroids count={profile.isMobile ? 18 : 60} />
-          <Comets comets={profile.isMobile ? 0 : 1} meteors={profile.isMobile ? 1 : 2} />
         </FadeByDistance>
 
+        {/* asteroides + meteoros por TODA a jornada (não atrelados ao Sol) */}
+        <Asteroids count={profile.isMobile ? 70 : 200} />
+        <Comets comets={profile.isMobile ? 1 : 3} meteors={profile.isMobile ? 4 : 11} />
+
         {/* gigante gasoso azul + planeta rochoso + gigante com anéis */}
-        <FadeByDistance position={[-13, 4.5, -19]} fadeStart={0} fadeEnd={40}>
+        <FadeByDistance position={[-13, 4.5, -19]} fadeStart={2} fadeEnd={58}>
           <Planet position={[-13, 4.5, -19]} radius={2.7} type="gas" sunPosition={[-4, 8, -10]} colorA="#2b5fa6" colorB="#7fb8e8" tilt={0.7} spin={0.05} seed={9.0} quality={q} />
           <Planet position={[12, 6, -40]} radius={1.7} type="rocky" sunPosition={[6, 10, -24]} tilt={0.3} spin={0.07} seed={4.0} quality={q} />
           <Planet position={[8, 1, -78]} radius={5.8} type="gas" sunPosition={[-6, 10, -58]} ring ringColor="#e6cfa0" ringInner={1.3} ringOuter={2.4} tilt={0.5} spin={0.02} seed={1.0} quality={q} />
@@ -166,8 +210,9 @@ function SceneContent() {
         {/* BURACO NEGRO */}
         <FadeByDistance position={[-20, 5, -125]} fadeStart={0} fadeEnd={110}><BlackHole position={[-20, 5, -125]} radius={6} tilt={0.42} /></FadeByDistance>
 
-        {/* galeria de conteúdo (cards de vidro) flutuando no espaço */}
-        <VisibleRange start={0.34} end={0.88}><Horizontal3DGallery quality={q} /></VisibleRange>
+        {/* galeria de conteúdo: surge JUNTO com os planetas (atrás do flash
+            branco em 0.19→0.235) e permanece até sair perto do buraco negro */}
+        <TimeWindow a={0.19} b={0.235} c={0.84} d={0.93}><Horizontal3DGallery quality={q} /></TimeWindow>
 
         {/* fundo: partículas densas + nebulosa com parallax de mouse */}
         <VisibleRange start={0.34} end={0.9}>

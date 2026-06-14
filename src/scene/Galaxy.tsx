@@ -76,32 +76,43 @@ export function Galaxy({
     const col = new Float32Array(count * 3);
     const scl = new Float32Array(count);
     const tw = new Float32Array(count);
-    const arms = 4;
-    const inner = new THREE.Color('#fff3d2');
+    const arms = 5;
+    const core = new THREE.Color('#fff6dc');
+    const inner = new THREE.Color('#ffe7b0');
     const mid = new THREE.Color('#cfe0ff');
-    const outer = new THREE.Color('#5f8fe0');
-    const pink = new THREE.Color('#ff8fce');
+    const outer = new THREE.Color('#4f86e6');
+    const edge = new THREE.Color('#2a4a9c');
+    const pink = new THREE.Color('#ff7ec8');
+    const teal = new THREE.Color('#65e8ff');
     const c = new THREE.Color();
     for (let i = 0; i < count; i++) {
-      const r = Math.pow(Math.random(), 0.55); // denso no núcleo
+      const r = Math.pow(Math.random(), 0.5); // denso no núcleo
       const arm = (i % arms) / arms;
-      const wind = r * 5.2;
-      const scatter = (Math.random() - 0.5) * (0.12 + r * 0.5);
+      // espiral logarítmica mais definida + ruído por braço
+      const wind = Math.pow(r, 0.85) * 6.4;
+      const armNoise = Math.sin(r * 14.0 + arm * 9.0) * 0.18;
+      // dispersão menor perto do braço → braços nítidos, halo difuso fora
+      const scatter = (Math.random() - 0.5) * (0.06 + r * 0.42) + armNoise;
       const angle = arm * Math.PI * 2 + wind + scatter;
       const rr = r * radius;
       pos[i * 3] = Math.cos(angle) * rr;
       pos[i * 3 + 2] = Math.sin(angle) * rr;
-      // disco fino, mais espesso no bojo
-      pos[i * 3 + 1] = (Math.random() - 0.5) * (radius * (0.16 * (1.0 - r) + 0.012));
+      // disco fino, bojo esférico no centro
+      pos[i * 3 + 1] = (Math.random() - 0.5) * (radius * (0.20 * Math.pow(1.0 - r, 2.0) + 0.01));
 
-      // cor por raio (+ algumas regiões rosadas)
-      if (r < 0.22) c.copy(inner).lerp(mid, r / 0.22);
-      else c.copy(mid).lerp(outer, (r - 0.22) / 0.78);
-      if (Math.random() < 0.04 && r > 0.25) c.lerp(pink, 0.6);
+      // cor por raio: núcleo dourado → azul → borda escura
+      if (r < 0.12) c.copy(core).lerp(inner, r / 0.12);
+      else if (r < 0.32) c.copy(inner).lerp(mid, (r - 0.12) / 0.20);
+      else if (r < 0.72) c.copy(mid).lerp(outer, (r - 0.32) / 0.40);
+      else c.copy(outer).lerp(edge, (r - 0.72) / 0.28);
+      // regiões HII rosadas e berçários azul-turquesa nos braços
+      const onArm = Math.abs(armNoise) < 0.05;
+      if (r > 0.25 && onArm && Math.random() < 0.14) c.lerp(pink, 0.55 + Math.random() * 0.3);
+      else if (r > 0.3 && Math.random() < 0.05) c.lerp(teal, 0.5);
       col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
 
-      const bright = r < 0.15 || Math.random() < 0.03;
-      scl[i] = (0.5 + Math.random() * 0.8) * (bright ? 2.6 : 1);
+      const bright = r < 0.1 || Math.random() < 0.025;
+      scl[i] = (0.45 + Math.random() * 0.85) * (bright ? 3.0 : 1);
       tw[i] = Math.random();
     }
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -153,7 +164,10 @@ export function Galaxy({
     <group position={position} rotation={rotation}>
       <group ref={spinRef}>
         <points geometry={geometry} material={material} frustumCulled={false} />
-        <sprite material={coreMat} scale={[radius * 0.9, radius * 0.9, 1]} />
+        {/* halo difuso amplo + bojo central brilhante (camadas) */}
+        <sprite material={coreMat} scale={[radius * 2.2, radius * 2.2, 1]} />
+        <sprite material={coreMat} scale={[radius * 1.0, radius * 1.0, 1]} />
+        <sprite material={coreMat} scale={[radius * 0.4, radius * 0.4, 1]} />
       </group>
     </group>
   );

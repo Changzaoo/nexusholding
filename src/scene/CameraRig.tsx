@@ -34,34 +34,38 @@ const KEYS: Key[] = [
   { p: 1.0,  pos: [-10, 3, -75],    look: [-16, 4, -110] },  // close-up: Saturno (dir.) + buraco negro (esq.)
 ];
 
-function ease(t: number): number {
-  return t * t * t * (t * (t * 6 - 15) + 10); // smootherstep
-}
-
 export function CameraRig() {
   const look = useRef(new THREE.Vector3(0, 0, 0));
   const smooth = useRef({ x: 0, y: 0 });
-  const { tp, tl, a, b } = useMemo(
-    () => ({
+
+  // Splines contínuos (centripetal Catmull-Rom) através de todos os keyframes:
+  // tangentes contínuas nas junções → a câmera NÃO para em cada card, o que
+  // dá um deslize fluido de drone ao longo de toda a viagem.
+  const { posCurve, lookCurve, tp, tl } = useMemo(() => {
+    const pts = KEYS.map((k) => new THREE.Vector3(...k.pos));
+    const lks = KEYS.map((k) => new THREE.Vector3(...k.look));
+    return {
+      posCurve: new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5),
+      lookCurve: new THREE.CatmullRomCurve3(lks, false, 'centripetal', 0.5),
       tp: new THREE.Vector3(),
       tl: new THREE.Vector3(),
-      a: new THREE.Vector3(),
-      b: new THREE.Vector3(),
-    }),
-    [],
-  );
+    };
+  }, []);
 
   useFrame((state, delta) => {
     const p = THREE.MathUtils.clamp(scrollState.progress, 0, 1);
 
+    // mapeia o progresso de scroll → parâmetro do spline respeitando o
+    // "horário" (p) de cada keyframe; suaviza só o cruzamento de cada trecho.
     let i = 0;
     while (i < KEYS.length - 2 && p > KEYS[i + 1].p) i++;
-    const k0 = KEYS[i];
-    const k1 = KEYS[i + 1];
-    const t = ease(THREE.MathUtils.clamp((p - k0.p) / (k1.p - k0.p), 0, 1));
+    const seg = THREE.MathUtils.clamp((p - KEYS[i].p) / (KEYS[i + 1].p - KEYS[i].p), 0, 1);
+    // ease suave (smoothstep) p/ entrada/saída macia, sem parar de vez
+    const segE = seg * seg * (3 - 2 * seg);
+    const u = (i + segE) / (KEYS.length - 1);
 
-    tp.lerpVectors(a.fromArray(k0.pos), b.fromArray(k1.pos), t);
-    tl.lerpVectors(a.fromArray(k0.look), b.fromArray(k1.look), t);
+    posCurve.getPoint(u, tp);
+    lookCurve.getPoint(u, tl);
 
     // parallax do mouse suavizado
     smooth.current.x = THREE.MathUtils.damp(smooth.current.x, pointerState.x, 2, delta);

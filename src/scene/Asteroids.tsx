@@ -22,10 +22,12 @@ interface Props {
   count?: number;
 }
 
-const X_MIN = -26;
-const X_MAX = 26;
+const X_MIN = -32;
+const X_MAX = 32;
+const Z_NEAR = 2;
+const Z_FAR = -128;
 
-export function Asteroids({ count = 130 }: Props) {
+export function Asteroids({ count = 180 }: Props) {
   const ref = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const q = useMemo(() => new THREE.Quaternion(), []);
@@ -35,8 +37,8 @@ export function Asteroids({ count = 130 }: Props) {
       Array.from({ length: count }, () => ({
         pos: new THREE.Vector3(
           X_MIN + Math.random() * (X_MAX - X_MIN),
-          (Math.random() - 0.5) * 22,
-          -4 - Math.random() * 64,
+          (Math.random() - 0.5) * 30,
+          Z_NEAR + Math.random() * (Z_FAR - Z_NEAR),
         ),
         axis: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(),
         spin: (Math.random() - 0.5) * 1.2,
@@ -82,7 +84,7 @@ export function Asteroids({ count = 130 }: Props) {
 
   return (
     <instancedMesh ref={ref} args={[geometry, undefined, count]} frustumCulled={false}>
-      <meshStandardMaterial color="#6b6258" roughness={1} metalness={0.05} flatShading />
+      <meshStandardMaterial color="#6b6258" roughness={1} metalness={0.05} emissive="#24201b" emissiveIntensity={0.6} flatShading />
     </instancedMesh>
   );
 }

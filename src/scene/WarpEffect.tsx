@@ -68,7 +68,7 @@ const FRAGMENT = /* glsl */ `
   }
 `;
 
-const COUNT = 3000;
+const COUNT = 6500;
 
 /** Warp intensity envelope: ramps up 0.02→0.12, peaks, fades 0.12→0.26 */
 function warpIntensity(p: number): number {
@@ -101,11 +101,15 @@ export function WarpEffect() {
       new THREE.Color('#41e8ff'),
       new THREE.Color('#8b5cf6'),
       new THREE.Color('#a0c4ff'),
+      new THREE.Color('#ff4ecd'),
+      new THREE.Color('#a3ff6b'),
+      new THREE.Color('#ffd9b0'),
     ];
 
     for (let i = 0; i < COUNT; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const r = 3.0 + Math.pow(Math.random(), 0.5) * 18;
+      // mais concentração perto do eixo (túnel) + alcance lateral maior
+      const r = 1.5 + Math.pow(Math.random(), 0.7) * 24;
       pos[i * 3] = Math.cos(angle) * r;
       pos[i * 3 + 1] = Math.sin(angle) * r;
       pos[i * 3 + 2] = Math.random() * 400 - 350;
@@ -115,7 +119,7 @@ export function WarpEffect() {
       col[i * 3 + 1] = c.g;
       col[i * 3 + 2] = c.b;
 
-      scl[i] = 0.5 + Math.random() * 2.0;
+      scl[i] = 0.45 + Math.random() * 2.6;
       off[i] = Math.random();
     }
 
@@ -195,12 +199,21 @@ export function WarpEffect() {
     );
     material.uniforms.uTravel.value = travel;
 
-    /* --- flash at warp peak (p ≈ 0.12) — ONLY sprite, no pointLight --- */
-    const flashT = Math.max(0, 1 - Math.abs(p - 0.12) / 0.045);
-    flashMat.opacity = flashT * 0.85;
+    /* --- brilho que VEM em direção à câmera ---
+       Surge no fundo (-z), acelera e passa pela câmera no fim da viagem,
+       lavando a tela — sensação de "a luz vindo até você". */
+    const wp = THREE.MathUtils.clamp((p - 0.02) / 0.24, 0, 1);
+    const approach = wp * wp * (3 - 2 * wp); // smoothstep (acelera no meio)
     if (spriteRef.current) {
-      spriteRef.current.scale.setScalar(18 + flashT * 36);
+      // -48 (longe, à frente) → +6 (atravessa a câmera, que está em z≈3)
+      spriteRef.current.position.z = THREE.MathUtils.lerp(-48, 6, approach);
+      // aumenta conforme se aproxima (além do crescimento natural por perspectiva)
+      spriteRef.current.scale.setScalar(6 + approach * 34);
     }
+    // aparece durante a aproximação e estoura ao chegar perto, sumindo ao passar
+    const rise = THREE.MathUtils.smoothstep(wp, 0.12, 0.55);
+    const pass = 1 - THREE.MathUtils.smoothstep(wp, 0.9, 1.0);
+    flashMat.opacity = rise * pass;
   });
 
   return (

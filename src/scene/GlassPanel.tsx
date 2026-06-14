@@ -5,6 +5,11 @@ import * as THREE from 'three';
 import { scrollState } from '../lib/scrollState';
 import { FloatingPanel } from './FloatingPanel';
 
+/* Fontes da marca (locais → texto 3D nítido, na identidade e sem depender de CDN) */
+const FONT_DISPLAY = '/fonts/SairaCondensed-Bold.ttf';
+const FONT_BODY = '/fonts/SpaceGrotesk.ttf';
+const FONT_MONO = '/fonts/IBMPlexMono-Regular.ttf';
+
 interface GlassPanelProps {
   position: [number, number, number];
   rotation?: [number, number, number];
@@ -19,9 +24,10 @@ interface GlassPanelProps {
 
 /**
  * Tela holográfica de vidro: RoundedBox escuro translúcido, borda fina
- * luminosa + scanlines (FloatingPanel atrás), reflexo interno e texto 3D
- * grande. Flutua em seno, gira de leve com o scroll e revela-se conforme
- * a câmera se aproxima — parecendo um painel de instalação, não um card SaaS.
+ * luminosa + scanlines (FloatingPanel atrás), reflexo interno e conteúdo
+ * editorial em texto 3D (índice, título, eyebrow, divisor e corpo). Flutua
+ * em seno, gira de leve com o scroll e revela-se conforme a câmera se
+ * aproxima — parecendo um painel de instalação, não um card SaaS.
  */
 export function GlassPanel({
   position,
@@ -56,16 +62,11 @@ export function GlassPanel({
     );
   });
 
-  const left = -w / 2 + 0.34;
-  const titleSize = hero ? Math.min(0.48, h * 0.18) : 0.34;
-  const bodyY = hero ? -0.58 : -0.6;
-  const tagY = hero ? -h / 2 + 0.52 : -h / 2 + 0.4;
-  const titleY = hero ? 0.20 : -0.02;
-  const accentY = hero ? -h / 2 + 0.30 : -h / 2 + 0.24;
-  const bodyFontSize = hero ? 0.10 : 0.09;
-  const bodyMaxWidth = w - 0.8;
-  const accentWidth = hero ? 0.9 : 0.6;
-  const accentX = hero ? left + 0.5 : left + 0.3;
+  const padX = 0.46; // respiro lateral → texto nunca encosta na borda
+  const left = -w / 2 + padX;
+  const top = h / 2 - 0.46;
+  const innerW = w - padX * 2; // largura útil de texto
+  const titleSize = hero ? Math.min(0.5, h * 0.17) : Math.min(0.42, h * 0.16);
 
   return (
     <group ref={groupRef} position={position} rotation={rotation}>
@@ -86,10 +87,10 @@ export function GlassPanel({
           <meshPhysicalMaterial
             color="#070c1c"
             transparent
-            opacity={0.9}
-            transmission={0.65}
+            opacity={0.96}
+            transmission={0.32}
             thickness={0.6}
-            roughness={0.2}
+            roughness={0.22}
             metalness={0.1}
             clearcoat={1}
             clearcoatRoughness={0.14}
@@ -99,72 +100,77 @@ export function GlassPanel({
           />
         </RoundedBox>
 
+        {/* placa escura por trás do texto → contraste alto, texto bem legível */}
+        <mesh position={[0, 0, 0.045]}>
+          <planeGeometry args={[w - 0.14, h - 0.14]} />
+          <meshBasicMaterial color="#040711" transparent opacity={0.62} toneMapped={false} />
+        </mesh>
+
+        {/* faixa de cabeçalho luminosa (recuada das bordas) */}
+        <mesh position={[0, h / 2 - 0.2, 0.05]}>
+          <planeGeometry args={[innerW, 0.02]} />
+          <meshBasicMaterial color={accent} transparent opacity={0.7} toneMapped={false} />
+        </mesh>
+
         {/* reflexo interno diagonal — limitado à largura do card */}
         <mesh position={[0, 0, 0.045]} rotation={[0, 0, 0.5]}>
-          <planeGeometry args={[w * 0.85, 0.10]} />
+          <planeGeometry args={[w * 0.85, 0.1]} />
           <meshBasicMaterial color="#ffffff" transparent opacity={0.05} toneMapped={false} />
         </mesh>
 
-        {index && (
-          <Text
-            position={[left, h / 2 - 0.36, 0.06]}
-            fontSize={0.15}
-            color={accent}
-            anchorX="left"
-            anchorY="middle"
-            letterSpacing={0.3}
-          >
-            {`/ ${index}`}
-          </Text>
+        {hero ? (
+          /* ----------------------- card de destaque (centralizado) */
+          <>
+            {index && (
+              <Text font={FONT_MONO} position={[0, top, 0.06]} fontSize={0.13} color={accent} anchorX="center" anchorY="top" letterSpacing={0.32}>
+                {`— ${index} —`}
+              </Text>
+            )}
+            <Text font={FONT_DISPLAY} position={[0, h * 0.16, 0.06]} fontSize={titleSize} maxWidth={innerW} color="#ffffff" anchorX="center" anchorY="middle" textAlign="center" letterSpacing={0.02} lineHeight={0.96} outlineWidth={0.004} outlineColor="#0a1430" outlineOpacity={0.6}>
+              {title}
+            </Text>
+            {tag && (
+              <Text font={FONT_MONO} position={[0, -0.16, 0.06]} fontSize={0.105} maxWidth={innerW} color={accent} anchorX="center" anchorY="middle" textAlign="center" letterSpacing={0.16}>
+                {tag.toUpperCase()}
+              </Text>
+            )}
+            <mesh position={[0, -0.4, 0.06]}>
+              <planeGeometry args={[Math.min(0.9, innerW), 0.014]} />
+              <meshBasicMaterial color={accent} toneMapped={false} />
+            </mesh>
+            {body && (
+              <Text font={FONT_BODY} position={[0, -0.56, 0.06]} fontSize={0.1} maxWidth={innerW - 0.3} color="#eaf3ff" anchorX="center" anchorY="top" textAlign="center" lineHeight={1.45}>
+                {body}
+              </Text>
+            )}
+          </>
+        ) : (
+          /* ----------------------- card padrão (alinhado à esquerda) */
+          <>
+            {index && (
+              <Text font={FONT_MONO} position={[left, top, 0.06]} fontSize={0.125} color={accent} anchorX="left" anchorY="top" letterSpacing={0.28}>
+                {`/ ${index}`}
+              </Text>
+            )}
+            <Text font={FONT_DISPLAY} position={[left, top - 0.28, 0.06]} fontSize={titleSize} maxWidth={innerW} color="#ffffff" anchorX="left" anchorY="top" textAlign="left" letterSpacing={0.015} lineHeight={0.95} outlineWidth={0.004} outlineColor="#0a1430" outlineOpacity={0.6}>
+              {title.toUpperCase()}
+            </Text>
+            {tag && (
+              <Text font={FONT_MONO} position={[left, top - 0.28 - titleSize - 0.14, 0.06]} fontSize={0.09} color={accent} anchorX="left" anchorY="top" letterSpacing={0.18} maxWidth={innerW} lineHeight={1.2}>
+                {tag.toUpperCase()}
+              </Text>
+            )}
+            <mesh position={[left + 0.3, top - 0.28 - titleSize - 0.34, 0.06]}>
+              <planeGeometry args={[0.6, 0.013]} />
+              <meshBasicMaterial color={accent} toneMapped={false} />
+            </mesh>
+            {body && (
+              <Text font={FONT_BODY} position={[left, top - 0.28 - titleSize - 0.5, 0.06]} fontSize={0.085} maxWidth={innerW} color="#e3edff" anchorX="left" anchorY="top" textAlign="left" lineHeight={1.42}>
+                {body}
+              </Text>
+            )}
+          </>
         )}
-
-          <Text
-            position={hero ? [0, titleY, 0.06] : [left, -0.02, 0.06]}
-          fontSize={titleSize}
-          maxWidth={w - 0.6}
-          color="#f4f6fb"
-          anchorX={hero ? 'center' : 'left'}
-          anchorY="middle"
-          textAlign={hero ? 'center' : 'left'}
-          letterSpacing={hero ? 0.04 : 0.01}
-          lineHeight={1.02}
-        >
-          {title}
-        </Text>
-
-        {tag && (
-          <Text
-            position={hero ? [0, tagY, 0.06] : [left, -h / 2 + 0.4, 0.06]}
-            fontSize={0.11}
-            color="#8fa3c8"
-            anchorX={hero ? 'center' : 'left'}
-            anchorY="middle"
-            letterSpacing={0.26}
-          >
-            {tag}
-          </Text>
-        )}
-
-        {body && (
-          <Text
-            position={hero ? [0, bodyY, 0.06] : [left, -0.6, 0.06]}
-            fontSize={bodyFontSize}
-            maxWidth={bodyMaxWidth}
-            color="#cfe2ff"
-            anchorX={hero ? 'center' : 'left'}
-            anchorY="middle"
-            textAlign={hero ? 'center' : 'left'}
-            lineHeight={1.06}
-          >
-            {body}
-          </Text>
-        )}
-
-        {/* linha de acento luminosa */}
-        <mesh position={[hero ? 0 : accentX, accentY, 0.06]}>
-          <planeGeometry args={[accentWidth, 0.014]} />
-          <meshBasicMaterial color={accent} toneMapped={false} />
-        </mesh>
       </group>
     </group>
   );
