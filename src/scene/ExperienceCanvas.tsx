@@ -214,8 +214,10 @@ function SceneContent() {
           <Planet position={[8, 1, -78]} radius={5.8} type="gas" sunPosition={[-6, 10, -58]} ring ringColor="#e6cfa0" ringInner={1.3} ringOuter={2.4} tilt={0.5} spin={0.02} seed={1.0} quality={q} />
         </FadeByDistance>
 
-        {/* BURACO NEGRO */}
-        <FadeByDistance position={[-20, 5, -125]} fadeStart={0} fadeEnd={110}><BlackHole position={[-20, 5, -125]} radius={6} tilt={0.42} /></FadeByDistance>
+        {/* BURACO NEGRO — SEM corte por distância: aparece JUNTO com os
+            planetas (no reveal em p≈0.2) e fica visível ao fundo durante
+            toda a jornada, ficando maior conforme a câmera se aproxima. */}
+        <BlackHole position={[-20, 5, -125]} radius={6} tilt={0.42} />
 
         {/* galeria de conteúdo: surge JUNTO com os planetas (atrás do flash
             branco em 0.19→0.235) e permanece até sair perto do buraco negro */}
