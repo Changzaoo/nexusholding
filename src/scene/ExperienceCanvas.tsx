@@ -10,6 +10,7 @@ import { MouseParallax } from './MouseParallax';
 import { DenseParticleNebula } from './DenseParticleNebula';
 import { Horizontal3DGallery } from './Horizontal3DGallery';
 import { Starfield } from './Starfield';
+import { Nebula } from './Nebula';
 import { Sun } from './Sun';
 import { Planet } from './Planet';
 import { Galaxy } from './Galaxy';
@@ -153,9 +154,14 @@ function SceneContent() {
       <CameraRig />
 
       {/* ============================ ESPAÇO SIDERAL ============================ */}
+      {/* abertura visível no primeiro frame, antes da viagem de scroll */}
+      <VisibleRange start={0.22} end={0}>
+        <Nebula />
+      </VisibleRange>
+
       {/* GALÁXIA (Via Láctea) — visível no topo (p=0), desaparece durante a viagem na luz (p=0→0.24). */}
       <VisibleRange start={0.36} end={0}>
-        <Galaxy count={profile.isMobile ? 3200 : 9000} position={[0, 6, -180]} rotation={[1.2, 0, 0.4]} radius={150} />
+        <Galaxy count={profile.isMobile ? 3600 : 11000} position={[0, 2.5, -95]} rotation={[1.15, 0.05, 0.32]} radius={82} />
       </VisibleRange>
 
       {/* campo de estrelas distante envolvendo toda a jornada */}

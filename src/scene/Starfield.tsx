@@ -19,10 +19,10 @@ const VERTEX = /* glsl */ `
   varying float vTwinkle;
   void main() {
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = aScale * uPixelRatio * (90.0 / max(1.0, -mv.z));
+    gl_PointSize = aScale * uPixelRatio * (135.0 / max(1.0, -mv.z));
     gl_Position = projectionMatrix * mv;
     vColor = aColor;
-    vTwinkle = 0.55 + 0.45 * sin(uTime * (0.8 + aTw * 2.5) + aTw * 30.0);
+    vTwinkle = 0.7 + 0.3 * sin(uTime * (0.8 + aTw * 2.5) + aTw * 30.0);
   }
 `;
 
@@ -32,7 +32,7 @@ const FRAGMENT = /* glsl */ `
   void main() {
     float d = distance(gl_PointCoord, vec2(0.5));
     float glow = smoothstep(0.5, 0.0, d);
-    float alpha = pow(glow, 1.8) * vTwinkle;
+    float alpha = pow(glow, 1.45) * vTwinkle * 1.25;
     if (alpha < 0.004) discard;
     gl_FragColor = vec4(vColor * (1.0 + glow * 0.5), alpha);
   }
@@ -72,8 +72,8 @@ export function Starfield({ count = 2600 }: Props) {
       colors[i * 3 + 2] = color.b;
 
       // smaller base size, brighter stars rarer for more realistic look
-      const bright = Math.random() < 0.015;
-      scales[i] = (0.3 + Math.random() * 0.6) * (bright ? 4.5 : 1);
+      const bright = Math.random() < 0.025;
+      scales[i] = (0.45 + Math.random() * 0.85) * (bright ? 4.8 : 1);
       tw[i] = Math.random();
     }
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));

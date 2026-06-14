@@ -35,13 +35,13 @@ interface CloudConfig {
 }
 
 const CLOUDS: CloudConfig[] = [
-  { color: '#8b5cf6', position: [-9, 4, -16], scale: 20, opacity: 0.2, spin: 0.015 },
-  { color: '#41e8ff', position: [10, -5, -30], scale: 24, opacity: 0.16, spin: -0.02 },
-  { color: '#103a2c', position: [-12, -3, -44], scale: 26, opacity: 0.3, spin: 0.01 },
-  { color: '#3b82f6', position: [8, 5, -58], scale: 22, opacity: 0.18, spin: -0.012 },
-  { color: '#ff4ecd', position: [-7, 2, -72], scale: 18, opacity: 0.12, spin: 0.02 },
-  { color: '#8b5cf6', position: [9, -2, -84], scale: 24, opacity: 0.2, spin: -0.015 },
-  { color: '#41e8ff', position: [0, 6, -94], scale: 26, opacity: 0.14, spin: 0.01 },
+  { color: '#8b5cf6', position: [-8, 3.5, -18], scale: 26, opacity: 0.32, spin: 0.015 },
+  { color: '#41e8ff', position: [9, -4, -30], scale: 30, opacity: 0.24, spin: -0.02 },
+  { color: '#103a2c', position: [-12, -3, -44], scale: 32, opacity: 0.36, spin: 0.01 },
+  { color: '#3b82f6', position: [8, 5, -58], scale: 28, opacity: 0.26, spin: -0.012 },
+  { color: '#ff4ecd', position: [-7, 2, -72], scale: 23, opacity: 0.2, spin: 0.02 },
+  { color: '#8b5cf6', position: [9, -2, -84], scale: 30, opacity: 0.26, spin: -0.015 },
+  { color: '#41e8ff', position: [0, 6, -94], scale: 34, opacity: 0.2, spin: 0.01 },
 ];
 
 /**
