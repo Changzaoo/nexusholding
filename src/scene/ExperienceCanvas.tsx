@@ -20,6 +20,7 @@ import { Comets } from './Comets';
 import { BlackHole } from './BlackHole';
 import { WarpEffect } from './WarpEffect';
 import { NebulaReveal } from './NebulaReveal';
+import { UfoChase } from './UfoChase';
 
 const SUN_POS: [number, number, number] = [-9, 4.5, -6];
 
@@ -227,6 +228,11 @@ function SceneContent() {
           </MouseParallax>
         </VisibleRange>
       </RevealOnScroll>
+
+      {/* EASTER EGG #2: perseguição OVNI — fora do RevealOnScroll para gerir
+          a própria visibilidade. Dispara ao ficar ~14s parado no final
+          (perto do buraco negro); relativo à câmera, sempre cruza a tela. */}
+      <UfoChase />
     </>
   );
 }
