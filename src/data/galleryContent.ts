@@ -86,6 +86,32 @@ export const galleryCards: GalleryCard[] = [
   },
 ];
 
+/**
+ * Layout MOBILE (retrato): a tela é alta e estreita, então os cards viram
+ * "totens" verticais centralizados no eixo X e enfileirados em profundidade
+ * (-Z), de frente para a câmera (sem yaw forte) — assim cabem inteiros na
+ * visão e o texto não fica foreshortened. A câmera (CameraRig, ramo mobile)
+ * desce reto pelo corredor passando por cada um. Mesmo conteúdo dos cards
+ * desktop; só geometria e enquadramento mudam.
+ */
+// Cards alternam lados (x = ±2.2) e giram para encarar a câmera, que desce
+// reta pelo centro (x≈0). Assim a câmera NÃO atravessa nenhum card — passa
+// ao lado de cada um — e o lookAt (CameraRig) mantém o card centralizado.
+const MOBILE_GEOMETRY: Record<
+  string,
+  { position: [number, number, number]; rotation: [number, number, number]; size: [number, number] }
+> = {
+  'program-hero': { position: [-2.2, 0.2, -13], rotation: [0, 0.35, 0.01], size: [3.0, 4.7] },
+  atrair: { position: [2.2, 0, -21], rotation: [0, -0.35, 0], size: [3.0, 4.5] },
+  operar: { position: [-2.2, 0, -29], rotation: [0, 0.35, 0], size: [3.0, 4.5] },
+  evoluir: { position: [2.2, 0.1, -37], rotation: [0, -0.35, 0], size: [3.0, 4.5] },
+};
+
+export const galleryCardsMobile: GalleryCard[] = galleryCards.map((card) => ({
+  ...card,
+  ...MOBILE_GEOMETRY[card.id],
+}));
+
 /** Índice editorial do lado esquerdo (SideIndex), atrelado ao progresso. */
 export const sideIndex = [
   { id: '01', label: 'INTRO', at: 0.0 },

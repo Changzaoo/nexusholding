@@ -245,7 +245,9 @@ export default function ExperienceCanvas() {
       <Canvas
         dpr={profile.dpr}
         gl={{ antialias: !profile.isMobile && !profile.lowPower, powerPreference: 'high-performance', alpha: false }}
-        camera={{ fov: 44, near: 0.1, far: 400, position: [0, 0.2, 9] }}
+        // retrato tem FOV horizontal estreito → abre o FOV vertical no mobile
+        // para que os totens verticais caibam inteiros na tela.
+        camera={{ fov: profile.isMobile ? 62 : 44, near: 0.1, far: 400, position: [0, 0.2, 9] }}
       >
         <color attach="background" args={['#01020a']} />
         <fog attach="fog" args={['#03040d', 30, 140]} />

@@ -147,7 +147,7 @@ export function Galaxy({
       new THREE.SpriteMaterial({
         map: coreTex,
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.32,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         fog: false,
@@ -165,9 +165,9 @@ export function Galaxy({
       <group ref={spinRef}>
         <points geometry={geometry} material={material} frustumCulled={false} />
         {/* halo difuso amplo + bojo central brilhante (camadas) */}
-        <sprite material={coreMat} scale={[radius * 2.2, radius * 2.2, 1]} />
-        <sprite material={coreMat} scale={[radius * 1.0, radius * 1.0, 1]} />
-        <sprite material={coreMat} scale={[radius * 0.4, radius * 0.4, 1]} />
+        <sprite material={coreMat} scale={[radius * 1.3, radius * 1.3, 1]} />
+        <sprite material={coreMat} scale={[radius * 0.6, radius * 0.6, 1]} />
+        <sprite material={coreMat} scale={[radius * 0.25, radius * 0.25, 1]} />
       </group>
     </group>
   );

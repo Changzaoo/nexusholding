@@ -1,4 +1,5 @@
-import { galleryCards } from '../data/galleryContent';
+import { galleryCards, galleryCardsMobile } from '../data/galleryContent';
+import { useDeviceProfile } from '../hooks/useDeviceProfile';
 import { GlassPanel } from './GlassPanel';
 
 interface Props {
@@ -7,15 +8,18 @@ interface Props {
 }
 
 /**
- * Galeria horizontal 3D: as telas de vidro (galleryContent) espalhadas em
- * profundidade pelo corredor. A revelação (aparecer/sumir) é controlada
- * pelo ExperienceCanvas — os cards surgem JUNTO com os planetas, atrás do
- * flash branco, e ficam presentes durante toda a travessia.
+ * Galeria 3D: as telas de vidro (galleryContent) espalhadas em profundidade
+ * pelo corredor. No desktop ficam dispostas horizontalmente; no mobile
+ * (retrato) viram totens verticais centralizados. A revelação (aparecer/
+ * sumir) é controlada pelo ExperienceCanvas — os cards surgem JUNTO com os
+ * planetas, atrás do flash branco, e ficam presentes durante a travessia.
  */
 export function Horizontal3DGallery(_props: Props) {
+  const { isMobile } = useDeviceProfile();
+  const cards = isMobile ? galleryCardsMobile : galleryCards;
   return (
     <group>
-      {galleryCards.map((card) => (
+      {cards.map((card) => (
         <GlassPanel
           key={card.id}
           position={card.position}
