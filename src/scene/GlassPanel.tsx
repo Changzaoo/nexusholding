@@ -96,8 +96,8 @@ export function GlassPanel({
           <meshPhysicalMaterial
             color="#070c1c"
             transparent
-            opacity={0.96}
-            transmission={0.32}
+            opacity={1}
+            transmission={0.08}
             thickness={0.6}
             roughness={0.22}
             metalness={0.1}
@@ -112,7 +112,7 @@ export function GlassPanel({
         {/* placa escura por trás do texto → contraste alto, texto bem legível */}
         <mesh position={[0, 0, 0.045]}>
           <planeGeometry args={[w - 0.14, h - 0.14]} />
-          <meshBasicMaterial color="#040711" transparent opacity={0.74} toneMapped={false} />
+          <meshBasicMaterial color="#040711" transparent opacity={0.96} toneMapped={false} />
         </mesh>
 
         {/* faixa de cabeçalho luminosa (recuada das bordas) */}

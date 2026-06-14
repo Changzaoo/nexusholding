@@ -39,8 +39,13 @@ body {
   background: #03040a;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.45);
+  background: #ffffff;
   border-radius: 2px;
+}
+
+/* Firefox */
+* {
+  scrollbar-color: #ffffff #03040a;
 }
 
 /* ------------------------------------------------------------------ */
