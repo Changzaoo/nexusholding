@@ -59,11 +59,14 @@ export const ROLE_LABEL: Record<Role, string> = {
 };
 
 export type ModuleKey =
+  | 'visaogeral'
   | 'pipeline'
   | 'leads'
   | 'clientes'
   | 'empresas'
   | 'propostas'
+  | 'agenda'
+  | 'financeiro'
   | 'tarefas'
   | 'campanhas'
   | 'usuarios'
@@ -71,11 +74,14 @@ export type ModuleKey =
   | 'conteudo';
 
 export const MODULE_LABEL: Record<ModuleKey, string> = {
+  visaogeral: 'Visão geral',
   pipeline: 'Pipeline',
   leads: 'Leads',
   clientes: 'Clientes',
   empresas: 'Empresas',
   propostas: 'Propostas',
+  agenda: 'Agenda',
+  financeiro: 'Financeiro',
   tarefas: 'Tarefas',
   campanhas: 'Campanhas',
   usuarios: 'Usuários',
@@ -85,10 +91,10 @@ export const MODULE_LABEL: Record<ModuleKey, string> = {
 
 /** Matriz de permissões: quais módulos cada papel acessa. */
 export const ROLE_PERMISSIONS: Record<Role, ModuleKey[]> = {
-  admin: ['pipeline', 'leads', 'clientes', 'empresas', 'propostas', 'tarefas', 'campanhas', 'usuarios', 'historico', 'conteudo'],
-  comercial: ['pipeline', 'leads', 'clientes', 'empresas', 'propostas', 'tarefas', 'campanhas', 'historico'],
-  operador: ['leads', 'tarefas', 'historico'],
-  cliente: ['propostas', 'tarefas'],
+  admin: ['visaogeral', 'pipeline', 'leads', 'clientes', 'empresas', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'usuarios', 'historico', 'conteudo'],
+  comercial: ['visaogeral', 'pipeline', 'leads', 'clientes', 'empresas', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'historico'],
+  operador: ['visaogeral', 'leads', 'agenda', 'tarefas', 'historico'],
+  cliente: ['propostas', 'agenda', 'tarefas'],
 };
 
 export function can(role: Role, mod: ModuleKey): boolean {
@@ -165,6 +171,29 @@ export interface Usuario extends BaseRecord {
   email: string;
   role: Role;
   active: boolean;
+}
+
+/** Evento de agenda — reunião, ligação, entrega, visita, etc. */
+export type EventoTipo = 'reuniao' | 'ligacao' | 'apresentacao' | 'entrega' | 'tarefa';
+export interface Evento extends BaseRecord {
+  title: string;
+  type: EventoTipo;
+  date: string; // ISO yyyy-mm-dd
+  time?: string; // HH:mm
+  owner?: string;
+  relatedTo?: string; // lead/cliente
+  notes?: string;
+}
+
+/** Parcela financeira vinculada a uma proposta/cliente. */
+export type ParcelaStatus = 'a_receber' | 'recebido' | 'atrasado';
+export interface Parcela extends BaseRecord {
+  description: string;
+  client: string;
+  value: number;
+  dueDate: string; // ISO yyyy-mm-dd
+  status: ParcelaStatus;
+  paidAt?: string;
 }
 
 export interface Historico extends BaseRecord {
@@ -305,6 +334,8 @@ export const tarefasStore = createStore<Tarefa>('tarefas');
 export const campanhasStore = createStore<Campanha>('campanhas');
 export const usuariosStore = createStore<Usuario>('usuarios');
 export const historicoStore = createStore<Historico>('historico');
+export const agendaStore = createStore<Evento>('agenda');
+export const financeiroStore = createStore<Parcela>('financeiro');
 
 /** registra um evento no histórico de atendimento. */
 export function logHistorico(
@@ -323,6 +354,11 @@ export interface FieldDef {
   type: 'text' | 'number' | 'email' | 'textarea' | 'date' | 'checkbox' | 'select' | 'ref';
   options?: { value: string; label: string; color?: string }[];
   required?: boolean;
+}
+
+/** Formata um número como moeda brasileira (R$). */
+export function moeda(v: number): string {
+  return (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 /** Exporta registros para um arquivo CSV (com BOM p/ Excel). */

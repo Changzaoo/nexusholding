@@ -83,25 +83,24 @@ export function GlassCard3D({
           scrollSpin={0}
         />
 
-        {/* corpo de vidro fosco */}
+        {/* corpo sólido — opaco, com leve emissão para não escurecer o texto */}
         <RoundedBox args={[width, height, 0.08]} radius={0.09} smoothness={4}>
           <meshPhysicalMaterial
-            color="#0b1226"
-            transparent
-            opacity={0.92}
-            transmission={0.7}
-            thickness={0.5}
-            roughness={0.22}
-            metalness={0.1}
+            color="#141f3e"
+            emissive="#0c1530"
+            emissiveIntensity={0.6}
+            roughness={0.32}
+            metalness={0.18}
             clearcoat={1}
-            clearcoatRoughness={0.15}
-            iridescence={0.45}
+            clearcoatRoughness={0.2}
+            iridescence={0.28}
             iridescenceIOR={1.3}
-            envMapIntensity={1.1}
+            envMapIntensity={0.9}
           />
         </RoundedBox>
 
-        {/* tipografia 3D */}
+        {/* tipografia 3D — toneMapped=false garante brilho pleno (sem
+            acinzentar com o tonemapping/bloom) e contorno reforça contraste */}
         {index && (
           <Text
             position={[left, height / 2 - 0.34, 0.06]}
@@ -110,6 +109,10 @@ export function GlassCard3D({
             anchorX="left"
             anchorY="middle"
             letterSpacing={0.3}
+            outlineWidth={0.004}
+            outlineColor="#04060f"
+            outlineOpacity={0.6}
+            material-toneMapped={false}
           >
             {`/ ${index}`}
           </Text>
@@ -119,12 +122,16 @@ export function GlassCard3D({
           position={hero ? [0, 0.1, 0.06] : [left, -0.05, 0.06]}
           fontSize={titleSize}
           maxWidth={width - 0.6}
-          color="#f4f6fb"
+          color="#ffffff"
           anchorX={hero ? 'center' : 'left'}
           anchorY="middle"
           textAlign={hero ? 'center' : 'left'}
           letterSpacing={hero ? 0.08 : 0.02}
           lineHeight={1.1}
+          outlineWidth={0.006}
+          outlineColor="#04060f"
+          outlineOpacity={0.7}
+          material-toneMapped={false}
         >
           {hero ? title : title.toUpperCase()}
         </Text>
@@ -133,10 +140,14 @@ export function GlassCard3D({
           <Text
             position={hero ? [0, -height / 2 + 0.4, 0.06] : [left, -height / 2 + 0.38, 0.06]}
             fontSize={0.105}
-            color="#8fa3c8"
+            color="#cbd8ef"
             anchorX={hero ? 'center' : 'left'}
             anchorY="middle"
             letterSpacing={0.28}
+            outlineWidth={0.004}
+            outlineColor="#04060f"
+            outlineOpacity={0.6}
+            material-toneMapped={false}
           >
             {tag}
           </Text>

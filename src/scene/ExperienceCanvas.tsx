@@ -168,8 +168,13 @@ function SceneContent() {
       {/* campo de estrelas distante envolvendo toda a jornada */}
       <Starfield count={profile.isMobile ? 900 : 2400} />
 
-      {/* efeito de viagem na luz — 3000 partículas, p=0.02→0.26 */}
-      <WarpEffect />
+      {/* efeito de viagem na luz, p=0.02→0.26.
+          Dispositivos fracos: menos partículas e flash branco mais suave —
+          evita o pico de overdraw que travava GPUs antigas no clarão. */}
+      <WarpEffect
+        count={profile.isMobile || profile.lowPower ? 2600 : 6500}
+        maxFlash={profile.isMobile || profile.lowPower ? 0.78 : 1.35}
+      />
       {/* nebulosa de transição — nuvem que revela planetas suavemente, p=0.22→0.65 */}
       <NebulaReveal />
 

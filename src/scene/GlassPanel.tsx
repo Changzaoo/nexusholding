@@ -91,28 +91,26 @@ export function GlassPanel({
           scrollSpin={0}
         />
 
-        {/* corpo de vidro fosco escuro */}
+        {/* corpo de vidro fosco escuro — sólido (sem transmissão) p/ cor cheia */}
         <RoundedBox args={[w, h, 0.08]} radius={0.1} smoothness={4}>
           <meshPhysicalMaterial
-            color="#070c1c"
-            transparent
-            opacity={1}
-            transmission={0.08}
-            thickness={0.6}
-            roughness={0.22}
-            metalness={0.1}
+            color="#0c1530"
+            emissive="#070c1c"
+            emissiveIntensity={0.5}
+            roughness={0.3}
+            metalness={0.14}
             clearcoat={1}
-            clearcoatRoughness={0.14}
-            iridescence={0.5}
+            clearcoatRoughness={0.16}
+            iridescence={0.32}
             iridescenceIOR={1.3}
-            envMapIntensity={1.2}
+            envMapIntensity={0.95}
           />
         </RoundedBox>
 
         {/* placa escura por trás do texto → contraste alto, texto bem legível */}
         <mesh position={[0, 0, 0.045]}>
           <planeGeometry args={[w - 0.14, h - 0.14]} />
-          <meshBasicMaterial color="#040711" transparent opacity={0.96} toneMapped={false} />
+          <meshBasicMaterial color="#040711" toneMapped={false} />
         </mesh>
 
         {/* faixa de cabeçalho luminosa (recuada das bordas) */}

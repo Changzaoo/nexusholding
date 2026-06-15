@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { submitLead } from '../lib/leads';
-import { siteContent } from '../data/siteContent';
+import { useSiteContent } from '../lib/content';
 
 interface LeadFormProps {
   onClose: () => void;
@@ -31,6 +31,7 @@ const REVENUES = [
  * veem tudo no CRM após login.
  */
 export function LeadForm({ onClose }: LeadFormProps) {
+  const siteContent = useSiteContent();
   const [form, setForm] = useState({
     name: '',
     company: '',

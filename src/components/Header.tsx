@@ -1,10 +1,11 @@
-import { siteContent } from '../data/siteContent';
+import { useSiteContent } from '../lib/content';
 
 /**
  * Header minimalista fixo: apenas o logo textual à esquerda (HUD).
  * Sem navegação. Nenhuma referência ao admin.
  */
 export function Header() {
+  const siteContent = useSiteContent();
   return (
     <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-center justify-between px-6 py-5 md:px-10">
       <a

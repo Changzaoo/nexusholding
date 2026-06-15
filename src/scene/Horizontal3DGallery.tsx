@@ -1,4 +1,4 @@
-import { galleryCards, galleryCardsMobile } from '../data/galleryContent';
+import { useGalleryContent } from '../lib/content';
 import { useDeviceProfile } from '../hooks/useDeviceProfile';
 import { GlassPanel } from './GlassPanel';
 
@@ -16,7 +16,7 @@ interface Props {
  */
 export function Horizontal3DGallery(_props: Props) {
   const { isMobile } = useDeviceProfile();
-  const cards = isMobile ? galleryCardsMobile : galleryCards;
+  const cards = useGalleryContent(isMobile);
   return (
     <group>
       {cards.map((card) => (

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { GlitchText } from './GlitchText';
-import { siteContent } from '../data/siteContent';
+import { useSiteContent } from '../lib/content';
 import { useScrollProgress } from '../hooks/useScrollProgress';
 
 /** Fade por janela: 0 fora de [a,d]; sobe a→b, segura b→c, desce c→d. */
@@ -42,6 +42,7 @@ interface OverlayProps {
 }
 
 export function Overlay({ onOpenLeadForm }: OverlayProps) {
+  const siteContent = useSiteContent();
   const p = useScrollProgress();
   const introRef = useRef<HTMLDivElement>(null);
 

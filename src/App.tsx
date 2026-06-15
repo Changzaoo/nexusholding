@@ -8,7 +8,6 @@ import { SideIndex } from './components/SideIndex';
 import { AdminLogin } from './components/AdminLogin';
 import { AdminDashboard } from './components/AdminDashboard';
 import { LeadForm } from './components/LeadForm';
-import { useSecretAdminTrigger } from './hooks/useSecretAdminTrigger';
 import { useSecretKeyboardLogin } from './hooks/useSecretKeyboardLogin';
 import { useDeviceProfile } from './hooks/useDeviceProfile';
 import { adminSignIn, watchAuth } from './lib/firebase';
@@ -41,15 +40,7 @@ export default function App() {
     [],
   );
 
-  // segurar "G" por 10s → login (ou direto ao dashboard se já logado).
-  // SILENCIOSO: nenhum indicador aparece enquanto segura; só dispara aos 10s.
-  useSecretAdminTrigger(() => {
-    if (user) setDashboardOpen(true);
-    else setShowLogin(true);
-  });
-
   // login secreto por teclado: e-mail + Enter → senha + Enter → entra direto.
-  // mesmo efeito de preencher o modal aberto pelo "G" por 10s.
   useSecretKeyboardLogin(async (email, password) => {
     if (user) {
       setDashboardOpen(true);
@@ -104,20 +95,36 @@ export default function App() {
     else lenis.start();
   }, [showLogin, dashboardOpen, showLeadForm]);
 
+  // ao SAIR do CRM, volta a experiência para o topo (e reativa o scroll)
+  const wasDashboardOpen = useRef(false);
+  useEffect(() => {
+    if (wasDashboardOpen.current && !dashboardOpen) {
+      scrollState.progress = 0;
+      scrollState.velocity = 0;
+      const lenis = lenisRef.current;
+      if (lenis) lenis.scrollTo(0, { immediate: true });
+      else window.scrollTo(0, 0);
+      ScrollTrigger.refresh();
+    }
+    wasDashboardOpen.current = dashboardOpen;
+  }, [dashboardOpen]);
+
   return (
     <div id="top">
-      {/* cena 3D fixa atrás de tudo */}
-      <Suspense
-        fallback={
-          <div className="fixed inset-0 z-0 flex items-center justify-center bg-void">
-            <span className="animate-pulse font-mono text-[10px] tracking-[0.5em] text-white/40 uppercase">
-              Inicializando experiência…
-            </span>
-          </div>
-        }
-      >
-        <ExperienceCanvas />
-      </Suspense>
+      {/* cena 3D fixa atrás de tudo — escondida enquanto o CRM está aberto */}
+      {!dashboardOpen && (
+        <Suspense
+          fallback={
+            <div className="fixed inset-0 z-0 flex items-center justify-center bg-void">
+              <span className="animate-pulse font-mono text-[10px] tracking-[0.5em] text-white/40 uppercase">
+                Inicializando experiência…
+              </span>
+            </div>
+          }
+        >
+          <ExperienceCanvas />
+        </Suspense>
+      )}
 
       {/* overlays atmosféricos: scanlines + ruído + vignette (CSS, leve) */}
       <div className="fx-overlay" aria-hidden />
@@ -126,11 +133,14 @@ export default function App() {
       <Overlay onOpenLeadForm={() => setShowLeadForm(true)} />
       <SideIndex />
 
-      {/* trilho de scroll — a altura define a duração da viagem 3D */}
-      <div
-        style={{ height: profile.isMobile ? '800vh' : '1000vh' }}
-        aria-hidden
-      />
+      {/* trilho de scroll — a altura define a duração da viagem 3D.
+          some enquanto o CRM está aberto (sem objetos 3D, sem scroll) */}
+      {!dashboardOpen && (
+        <div
+          style={{ height: profile.isMobile ? '800vh' : '1000vh' }}
+          aria-hidden
+        />
+      )}
 
       {/* formulário de captação (Raio-X Digital) */}
       {showLeadForm && <LeadForm onClose={() => setShowLeadForm(false)} />}

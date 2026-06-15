@@ -68,7 +68,7 @@ const FRAGMENT = /* glsl */ `
   }
 `;
 
-const COUNT = 6500;
+const COUNT_DEFAULT = 6500;
 
 /** Warp intensity envelope: ramps up 0.02→0.12, peaks, fades 0.12→0.26 */
 function warpIntensity(p: number): number {
@@ -84,9 +84,18 @@ function warpTravel(p: number): number {
   return t * t * 600;
 }
 
-export function WarpEffect() {
+interface WarpEffectProps {
+  /** nº de partículas — menor em dispositivos fracos para evitar travamento */
+  count?: number;
+  /** opacidade máxima do flash branco — menor evita pico de overdraw que
+      congela GPUs antigas quando a tela fica toda branca */
+  maxFlash?: number;
+}
+
+export function WarpEffect({ count = COUNT_DEFAULT, maxFlash = 1.35 }: WarpEffectProps = {}) {
   const ref = useRef<THREE.Points>(null);
   const spriteRef = useRef<THREE.Sprite>(null);
+  const COUNT = count;
 
   const geometry = useMemo(() => {
     const geo = new THREE.BufferGeometry();
@@ -128,7 +137,7 @@ export function WarpEffect() {
     geo.setAttribute('aSize', new THREE.BufferAttribute(scl, 1));
     geo.setAttribute('aOffset', new THREE.BufferAttribute(off, 1));
     return geo;
-  }, []);
+  }, [COUNT]);
 
   const material = useMemo(
     () =>
@@ -212,13 +221,15 @@ export function WarpEffect() {
     if (spriteRef.current) {
       // -48 (longe, à frente) → +6 (atravessa a câmera, que está em z≈3)
       spriteRef.current.position.z = THREE.MathUtils.lerp(-48, 6, approach);
-      // aumenta conforme se aproxima (além do crescimento natural por perspectiva)
-      spriteRef.current.scale.setScalar(6 + approach * 34);
+      // aumenta conforme se aproxima (além do crescimento natural por perspectiva);
+      // escala do pico acompanha maxFlash → menos área branca em GPUs fracas
+      const peak = 18 + 16 * (maxFlash / 1.35);
+      spriteRef.current.scale.setScalar(6 + approach * peak);
     }
     // aparece durante a aproximação e estoura ao chegar perto, sumindo ao passar
     const rise = THREE.MathUtils.smoothstep(wp, 0.12, 0.55);
     const pass = 1 - THREE.MathUtils.smoothstep(wp, 0.9, 0.98);
-    flashMat.opacity = Math.min(1, rise * pass * 1.35);
+    flashMat.opacity = Math.min(maxFlash, rise * pass * maxFlash);
   });
 
   return (

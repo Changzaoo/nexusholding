@@ -23,7 +23,11 @@ import {
   type Usuario,
 } from '../lib/crm';
 import { EntityManager } from './EntityManager';
-import type { AdminUser, EditableContent } from '../types/admin';
+import { OverviewPanel } from './crm/OverviewPanel';
+import { AgendaPanel } from './crm/AgendaPanel';
+import { FinanceiroPanel } from './crm/FinanceiroPanel';
+import { ContentPanel } from './crm/ContentPanel';
+import type { AdminUser } from '../types/admin';
 
 interface AdminDashboardProps {
   user: AdminUser;
@@ -61,7 +65,7 @@ function exportLeads(leads: Lead[]) {
 
 const CSV_BTN = 'rounded-full border border-white/15 px-4 py-2 font-mono text-[10px] tracking-[0.2em] text-white/60 uppercase transition-colors hover:text-neon-cyan';
 
-const MODULE_ORDER: ModuleKey[] = ['pipeline', 'leads', 'clientes', 'empresas', 'propostas', 'tarefas', 'campanhas', 'usuarios', 'historico', 'conteudo'];
+const MODULE_ORDER: ModuleKey[] = ['visaogeral', 'pipeline', 'leads', 'clientes', 'empresas', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'usuarios', 'historico', 'conteudo'];
 
 export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
   // papel do usuário logado (busca na tabela de usuários por e-mail) → admin por padrão
@@ -73,7 +77,7 @@ export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
   }, [usuarios, user.email]);
 
   const tabs = useMemo(() => MODULE_ORDER.filter((m) => can(role, m)), [role]);
-  const [tab, setTab] = useState<ModuleKey>('pipeline');
+  const [tab, setTab] = useState<ModuleKey>('visaogeral');
   useEffect(() => {
     if (!tabs.includes(tab)) setTab(tabs[0]);
   }, [tabs, tab]);
@@ -114,10 +118,13 @@ export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
           ))}
         </nav>
 
+        {tab === 'visaogeral' && <OverviewPanel onGo={(m) => setTab(m as ModuleKey)} />}
         {tab === 'pipeline' && <PipelinePanel author={user.email ?? 'admin'} />}
         {tab === 'leads' && <LeadsPanel author={user.email ?? 'admin'} />}
+        {tab === 'agenda' && <AgendaPanel readOnly={role === 'cliente'} />}
+        {tab === 'financeiro' && <FinanceiroPanel readOnly={role === 'cliente'} />}
         {tab === 'historico' && <HistoricoPanel />}
-        {tab === 'conteudo' && <ContentPanel />}
+        {tab === 'conteudo' && <ContentPanel readOnly={role === 'cliente'} />}
         {tab === 'usuarios' && (
           <div className="flex flex-col gap-8">
             <EntityManager schema={SCHEMAS.usuarios} store={STORE_BY_MODULE.usuarios!} readOnly={role === 'cliente'} />
@@ -406,41 +413,3 @@ function PermissionsMatrix() {
 }
 
 /* ===================================================== CONTEÚDO */
-function ContentPanel() {
-  const [content, setContent] = useState<EditableContent>({
-    heroTitle: siteContent.hero.title,
-    heroSubtitle: siteContent.hero.subtitle,
-    services: siteContent.services.map((s) => ({ ...s })),
-    contactCta: siteContent.final.ctaLabel,
-  });
-  const [savedFlash, setSavedFlash] = useState(false);
-  const inputClass = 'w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-neon-cyan/60';
-
-  return (
-    <div className="grid gap-6 md:grid-cols-2">
-      <section className="glass-panel rounded-2xl p-6">
-        <h2 className="mb-4 font-mono text-[11px] tracking-[0.3em] text-white/55 uppercase">Hero Title</h2>
-        <input value={content.heroTitle} onChange={(e) => setContent((c) => ({ ...c, heroTitle: e.target.value }))} className={inputClass} />
-      </section>
-      <section className="glass-panel rounded-2xl p-6">
-        <h2 className="mb-4 font-mono text-[11px] tracking-[0.3em] text-white/55 uppercase">Hero Subtitle</h2>
-        <textarea value={content.heroSubtitle} rows={2} onChange={(e) => setContent((c) => ({ ...c, heroSubtitle: e.target.value }))} className={`${inputClass} resize-none`} />
-      </section>
-      <section className="glass-panel rounded-2xl p-6 md:col-span-2">
-        <h2 className="mb-4 font-mono text-[11px] tracking-[0.3em] text-white/55 uppercase">Services</h2>
-        <div className="flex flex-col gap-3">
-          {content.services.map((service, i) => (
-            <div key={service.id} className="flex items-center gap-3">
-              <span className="w-8 font-mono text-xs text-neon-violet">{service.id}</span>
-              <input value={service.title} onChange={(e) => setContent((c) => { const services = [...c.services]; services[i] = { ...services[i], title: e.target.value }; return { ...c, services }; })} className={inputClass} />
-            </div>
-          ))}
-        </div>
-      </section>
-      <footer className="flex items-center gap-4 md:col-span-2">
-        <button onClick={() => { setSavedFlash(true); setTimeout(() => setSavedFlash(false), 1800); }} className="pill-button">Salvar alterações</button>
-        {savedFlash && <span className="font-mono text-[11px] text-neon-acid">✓ Pronto para conectar ao Firestore</span>}
-      </footer>
-    </div>
-  );
-}
