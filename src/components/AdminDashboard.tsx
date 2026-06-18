@@ -27,6 +27,7 @@ import { OverviewPanel } from './crm/OverviewPanel';
 import { AgendaPanel } from './crm/AgendaPanel';
 import { FinanceiroPanel } from './crm/FinanceiroPanel';
 import { ContentPanel } from './crm/ContentPanel';
+import { MarketingPanel } from './crm/MarketingPanel';
 import type { AdminUser } from '../types/admin';
 
 interface AdminDashboardProps {
@@ -65,7 +66,7 @@ function exportLeads(leads: Lead[]) {
 
 const CSV_BTN = 'rounded-full border border-white/15 px-4 py-2 font-mono text-[10px] tracking-[0.2em] text-white/60 uppercase transition-colors hover:text-neon-cyan';
 
-const MODULE_ORDER: ModuleKey[] = ['visaogeral', 'pipeline', 'leads', 'clientes', 'empresas', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'usuarios', 'historico', 'conteudo'];
+const MODULE_ORDER: ModuleKey[] = ['visaogeral', 'pipeline', 'leads', 'clientes', 'empresas', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'marketing', 'usuarios', 'historico', 'conteudo'];
 
 export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
   // papel do usuário logado (busca na tabela de usuários por e-mail) → admin por padrão
@@ -125,6 +126,7 @@ export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
         {tab === 'financeiro' && <FinanceiroPanel readOnly={role === 'cliente'} />}
         {tab === 'historico' && <HistoricoPanel />}
         {tab === 'conteudo' && <ContentPanel readOnly={role === 'cliente'} />}
+        {tab === 'marketing' && <MarketingPanel />}
         {tab === 'usuarios' && (
           <div className="flex flex-col gap-8">
             <EntityManager schema={SCHEMAS.usuarios} store={STORE_BY_MODULE.usuarios!} readOnly={role === 'cliente'} />

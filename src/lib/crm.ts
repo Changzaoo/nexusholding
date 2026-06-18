@@ -71,7 +71,8 @@ export type ModuleKey =
   | 'campanhas'
   | 'usuarios'
   | 'historico'
-  | 'conteudo';
+  | 'conteudo'
+  | 'marketing';
 
 export const MODULE_LABEL: Record<ModuleKey, string> = {
   visaogeral: 'Visão geral',
@@ -87,12 +88,13 @@ export const MODULE_LABEL: Record<ModuleKey, string> = {
   usuarios: 'Usuários',
   historico: 'Histórico',
   conteudo: 'Conteúdo',
+  marketing: 'Marketing',
 };
 
 /** Matriz de permissões: quais módulos cada papel acessa. */
 export const ROLE_PERMISSIONS: Record<Role, ModuleKey[]> = {
-  admin: ['visaogeral', 'pipeline', 'leads', 'clientes', 'empresas', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'usuarios', 'historico', 'conteudo'],
-  comercial: ['visaogeral', 'pipeline', 'leads', 'clientes', 'empresas', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'historico'],
+  admin: ['visaogeral', 'pipeline', 'leads', 'clientes', 'empresas', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'usuarios', 'historico', 'conteudo', 'marketing'],
+  comercial: ['visaogeral', 'pipeline', 'leads', 'clientes', 'empresas', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'historico', 'marketing'],
   operador: ['visaogeral', 'leads', 'agenda', 'tarefas', 'historico'],
   cliente: ['propostas', 'agenda', 'tarefas'],
 };
