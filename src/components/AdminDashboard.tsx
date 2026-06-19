@@ -24,7 +24,10 @@ import { FinanceiroPanel } from './crm/FinanceiroPanel';
 import { ContentPanel } from './crm/ContentPanel';
 import { MarketingPanel } from './crm/MarketingPanel';
 import { CampanhasPanel } from './crm/CampanhasPanel';
+import { NotificationBell } from './NotificationBell';
+import { Tour } from './Tour';
 import { syncMidia } from '../lib/midiaSync';
+import { globalTour, tabTours, hasSeenTour, markTourSeen, type TourStep } from '../lib/tutorial';
 import type { AdminUser } from '../types/admin';
 
 interface AdminDashboardProps {
@@ -75,10 +78,16 @@ export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
 
   const tabs = MODULE_ORDER.filter((m) => can(role, m));
   const [tab, setTab] = useState<ModuleKey>('visaogeral');
+  const [tour, setTour] = useState<TourStep[] | null>(null);
 
   // Sincroniza os clientes com a fábrica de mídia uma vez por sessão,
   // para que os clientes/entregáveis da Mídia já apareçam no CRM.
   useEffect(() => { syncMidia().catch(() => {}); }, []);
+
+  // Tutorial de boas-vindas no primeiro acesso.
+  useEffect(() => { if (!hasSeenTour()) setTour(globalTour); }, []);
+  const fecharTour = () => { setTour(null); markTourSeen(); };
+  const abrirTutorialDaAba = () => setTour(tabTours[tab] ?? globalTour);
 
   const handleSignOut = async () => {
     await adminSignOut();
@@ -88,6 +97,7 @@ export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
   const navItem = (m: ModuleKey) => (
     <button
       key={m}
+      data-tour={`nav-${m}`}
       onClick={() => setTab(m)}
       className={`shrink-0 rounded-lg px-3 py-2 text-left font-mono text-[11px] tracking-[0.16em] whitespace-nowrap uppercase transition-colors ${
         tab === m ? 'bg-white/12 text-white' : 'text-white/45 hover:bg-white/5 hover:text-white/80'
@@ -131,7 +141,21 @@ export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
             {tabs.map(navItem)}
           </nav>
 
-          <h1 className="mb-6 font-display text-3xl font-bold tracking-wide text-white">{MODULE_LABEL[tab]}</h1>
+          <div className="mb-6 flex items-center justify-between gap-3">
+            <h1 className="font-display text-3xl font-bold tracking-wide text-white">{MODULE_LABEL[tab]}</h1>
+            <div className="flex shrink-0 items-center gap-2">
+              <NotificationBell onNavigate={(m) => setTab(m)} />
+              <button
+                data-tour="help"
+                onClick={abrirTutorialDaAba}
+                aria-label="Tutorial desta aba"
+                title="Tutorial desta aba"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/12 font-display text-base font-bold text-white/70 transition-colors hover:border-neon-cyan/40 hover:text-neon-cyan"
+              >
+                ?
+              </button>
+            </div>
+          </div>
 
           {tab === 'visaogeral' && (
             <div className="flex flex-col gap-8">
@@ -154,6 +178,14 @@ export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
           )}
         </div>
       </main>
+
+      {tour && (
+        <Tour
+          steps={tour}
+          onClose={fecharTour}
+          onStep={(s) => { if (s.module) setTab(s.module); }}
+        />
+      )}
     </div>
   );
 }
