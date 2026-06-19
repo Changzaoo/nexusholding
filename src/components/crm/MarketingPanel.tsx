@@ -69,7 +69,7 @@ export function MarketingPanel() {
       {result && !result.error && (
         <div className="glass-panel rounded-2xl p-4 font-mono text-[11px] text-white/55">
           Última sincronização: {result.pulledCriados} cliente(s) trazido(s) da Mídia, {result.pulledAtualizados} atualizado(s),
-          {' '}{result.pushed} enviado(s) do CRM para a Mídia · {result.total} no total na fábrica.
+          {' '}{result.pushed} enviado(s) do CRM para a Mídia, {result.leadsCriados} novo(s) lead(s) no pipeline · {result.total} no total na fábrica.
         </div>
       )}
 

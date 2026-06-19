@@ -77,8 +77,27 @@ export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
   const author = user.email ?? user.displayName ?? 'Dono';
 
   const tabs = MODULE_ORDER.filter((m) => can(role, m));
-  const [tab, setTab] = useState<ModuleKey>('visaogeral');
+  // a aba ativa vive no hash da URL (#/financeiro etc.): cada item tem URL
+  // própria, dá pra entrar direto e o reload NÃO reseta para a Visão geral.
+  const readHashTab = (): ModuleKey | null => {
+    const h = (typeof window !== 'undefined' ? window.location.hash : '').replace(/^#\/?/, '');
+    return (tabs as string[]).includes(h) ? (h as ModuleKey) : null;
+  };
+  const [tab, setTab] = useState<ModuleKey>(() => readHashTab() ?? 'visaogeral');
   const [tour, setTour] = useState<TourStep[] | null>(null);
+
+  // mantém o hash em sincronia com a aba (sem empilhar histórico)
+  useEffect(() => {
+    const target = `#/${tab}`;
+    if (window.location.hash !== target) window.history.replaceState(null, '', target);
+  }, [tab]);
+  // responde a navegação manual / voltar-avançar
+  useEffect(() => {
+    const onHash = () => { const t = readHashTab(); if (t) setTab(t); };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Sincroniza os clientes com a fábrica de mídia uma vez por sessão,
   // para que os clientes/entregáveis da Mídia já apareçam no CRM.

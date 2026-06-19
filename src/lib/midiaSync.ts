@@ -19,7 +19,11 @@
  */
 import {
   clientesStore,
+  leadsStore,
   type Cliente,
+  type Lead,
+  type BaseRecord,
+  type Store,
 } from './crm';
 import {
   listDashClients,
@@ -29,18 +33,18 @@ import {
 } from './nexusBridge';
 
 /** Lê o estado atual de uma coleção uma única vez (subscribe + unsubscribe). */
-function readOnce(): Promise<Cliente[]> {
+function readOnce<T extends BaseRecord>(store: Store<T>): Promise<T[]> {
   return new Promise((resolve) => {
     let unsub: (() => void) | null = null;
     let done = false;
-    const finish = (items: Cliente[]) => {
+    const finish = (items: T[]) => {
       if (done) return;
       done = true;
       // o unsub pode ainda não ter sido atribuído (emissão síncrona): adia.
       queueMicrotask(() => unsub?.());
       resolve(items);
     };
-    unsub = clientesStore.subscribe(finish);
+    unsub = store.subscribe(finish);
   });
 }
 
@@ -78,6 +82,7 @@ export interface SyncResult {
   pulledCriados: number; // clientes da Mídia criados no CRM
   pulledAtualizados: number; // clientes vinculados/atualizados no CRM
   pushed: number; // clientes do CRM enviados para a Mídia
+  leadsCriados: number; // leads "novo" criados no pipeline a partir da Mídia
   total: number; // total de clientes na Mídia após o sync
   error?: string;
 }
@@ -87,9 +92,13 @@ export interface SyncResult {
  * Seguro chamar de tempos em tempos / em todo carregamento.
  */
 export async function syncMidia(): Promise<SyncResult> {
-  const res: SyncResult = { pulledCriados: 0, pulledAtualizados: 0, pushed: 0, total: 0 };
+  const res: SyncResult = { pulledCriados: 0, pulledAtualizados: 0, pushed: 0, leadsCriados: 0, total: 0 };
   try {
-    const [dash, crm] = await Promise.all([listDashClients(), readOnce()]);
+    const [dash, crm, leadsAtuais] = await Promise.all([
+      listDashClients(),
+      readOnce(clientesStore),
+      readOnce(leadsStore),
+    ]);
     res.total = dash.length;
 
     // índices para casar os dois lados
@@ -148,6 +157,25 @@ export async function syncMidia(): Promise<SyncResult> {
         brief: { nicho: c.segment, cidade: c.city },
       });
       res.pushed++;
+    }
+
+    /* ---------- pipeline: cada cliente da Mídia vira um lead "novo" ----------
+       (idempotente: não duplica nem reseta quem já foi reclassificado) */
+    const leadByMidia = new Map(leadsAtuais.filter((l) => l.midiaId).map((l) => [l.midiaId as string, l]));
+    const leadByNome = new Map(leadsAtuais.filter((l) => l.name?.trim()).map((l) => [norm(l.name), l]));
+    for (const d of dash) {
+      if (leadByMidia.has(d.id)) continue;
+      if (leadByNome.has(norm(d.id)) || leadByNome.has(norm(prettify(d.id)))) continue;
+      await leadsStore.create({
+        name: prettify(d.id),
+        email: '',
+        segment: d.nicho || undefined,
+        source: 'midia',
+        status: 'novo',
+        midiaId: d.id,
+        notes: '',
+      } as Omit<Lead, 'id' | 'createdAt'>);
+      res.leadsCriados++;
     }
   } catch (e: any) {
     res.error = e?.message || String(e);

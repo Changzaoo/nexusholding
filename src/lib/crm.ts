@@ -121,6 +121,8 @@ export interface Lead extends BaseRecord {
   status: LeadStatus;
   owner?: string;
   notes?: string;
+  /** vínculo com a fábrica de mídia, quando o lead nasceu de um cliente de lá. */
+  midiaId?: string;
 }
 
 export interface Cliente extends BaseRecord {
