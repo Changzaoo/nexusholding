@@ -61,7 +61,7 @@ export function OverviewPanel({ onGo }: { onGo?: (mod: string) => void }) {
     return [...eventos]
       .filter((e) => e.date >= t)
       .sort((a, b) => (a.date + (a.time ?? '')).localeCompare(b.date + (b.time ?? '')))
-      .slice(0, 6);
+      .slice(0, 3);
   }, [eventos]);
 
   const cards = [
@@ -89,11 +89,11 @@ export function OverviewPanel({ onGo }: { onGo?: (mod: string) => void }) {
         ))}
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         {/* funil comercial */}
-        <div className="glass-panel rounded-2xl p-6">
-          <h3 className="mb-4 font-mono text-[11px] tracking-[0.3em] text-white/55 uppercase">Funil comercial</h3>
-          <div className="flex flex-col gap-3">
+        <div className="glass-panel rounded-2xl p-4">
+          <h3 className="mb-3 font-mono text-[11px] tracking-[0.3em] text-white/55 uppercase">Funil comercial</h3>
+          <div className="flex flex-col gap-2">
             {funil.map((f) => (
               <div key={f.value}>
                 <div className="mb-1 flex items-center justify-between text-sm">
@@ -112,7 +112,7 @@ export function OverviewPanel({ onGo }: { onGo?: (mod: string) => void }) {
         </div>
 
         {/* próximos compromissos */}
-        <div className="glass-panel rounded-2xl p-6">
+        <div className="glass-panel rounded-2xl p-4">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-mono text-[11px] tracking-[0.3em] text-white/55 uppercase">Próximos compromissos</h3>
             <button onClick={() => onGo?.('agenda')} className="font-mono text-[10px] tracking-[0.2em] text-neon-cyan uppercase hover:text-white">ver agenda →</button>

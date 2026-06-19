@@ -11,6 +11,7 @@ import {
   type CustoCategoria,
   type Proposta,
 } from '../../lib/crm';
+import { AutoPaged } from '../AutoPaged';
 
 const STATUS: { value: ParcelaStatus; label: string; color: string }[] = [
   { value: 'a_receber', label: 'A receber', color: '#41e8ff' },
@@ -177,13 +178,13 @@ export function FinanceiroPanel({ readOnly = false }: { readOnly?: boolean }) {
         </label>
       </div>
 
-      {/* área rolável da visão ativa (a página em si não rola) */}
-      <div className="crm-scroll flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
+      {/* área da visão ativa — preenche a tela; nada rola, listas paginam */}
+      <div className="min-h-0 flex-1 overflow-hidden">
 
       {/* ============================== RESUMO: DRE + Fluxo + Projetos */}
       {view === 'resumo' && (
-        <>
-          <div className="grid gap-4 lg:grid-cols-2">
+        <div className="flex h-full min-h-0 flex-col gap-4">
+          <div className="grid shrink-0 gap-4 lg:grid-cols-2">
             {/* DRE simplificada */}
             <div className="glass-panel rounded-2xl p-5">
               <h3 className="mb-3 font-mono text-[11px] tracking-[0.25em] text-neon-cyan uppercase">DRE simplificada · {monthLabel(mes)}</h3>
@@ -224,116 +225,100 @@ export function FinanceiroPanel({ readOnly = false }: { readOnly?: boolean }) {
           </div>
 
           {/* Margem por projeto */}
-          <div className="glass-panel overflow-hidden rounded-2xl">
-            <div className="flex items-center justify-between px-5 pt-4">
+          <div className="glass-panel flex min-h-0 flex-1 flex-col rounded-2xl p-4">
+            <div className="flex shrink-0 items-center justify-between pb-2">
               <h3 className="font-mono text-[11px] tracking-[0.25em] text-neon-cyan uppercase">Margem por projeto / cliente</h3>
               <span className="font-mono text-[10px] text-white/35">a receber: {moeda(aReceber)}</span>
             </div>
-            {porProjeto.length === 0 ? (
-              <div className="p-8 text-center font-mono text-xs text-white/35">Lance receitas e custos vinculados a um cliente/projeto para ver a margem.</div>
-            ) : (
-              <table className="mt-2 w-full text-sm">
-                <thead>
-                  <tr className="border-b border-white/5 text-left font-mono text-[10px] tracking-[0.15em] text-white/35 uppercase">
-                    <th className="px-5 py-2.5">Projeto / cliente</th>
-                    <th className="px-4 py-2.5 text-right">Receita</th>
-                    <th className="px-4 py-2.5 text-right">Custo</th>
-                    <th className="px-4 py-2.5 text-right">Margem</th>
-                    <th className="px-5 py-2.5 text-right">%</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {porProjeto.map((p) => (
-                    <tr key={p.nome} className="border-b border-white/5 last:border-0 hover:bg-white/5">
-                      <td className="px-5 py-2.5 font-medium text-white">{p.nome}</td>
-                      <td className="px-4 py-2.5 text-right text-neon-acid">{moeda(p.receita)}</td>
-                      <td className="px-4 py-2.5 text-right text-neon-magenta/90">{moeda(p.custo)}</td>
-                      <td className="px-4 py-2.5 text-right font-semibold" style={{ color: p.margem >= 0 ? '#22c55e' : '#ff5d73' }}>{moeda(p.margem)}</td>
-                      <td className="px-5 py-2.5 text-right font-mono text-xs text-white/55">{p.pct == null ? '—' : `${p.pct}%`}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+            <div className="min-h-0 flex-1">
+              <AutoPaged
+                items={porProjeto}
+                rowPx={38}
+                empty={<div className="flex h-full items-center justify-center p-6 text-center font-mono text-xs text-white/35">Lance receitas e custos vinculados a um cliente/projeto para ver a margem.</div>}
+                render={(p) => (
+                  <div key={p.nome} className="flex items-center gap-3 border-b border-white/5 py-2 text-sm">
+                    <span className="min-w-0 flex-1 truncate font-medium text-white">{p.nome}</span>
+                    <span className="w-24 text-right text-neon-acid">{moeda(p.receita)}</span>
+                    <span className="w-24 text-right text-neon-magenta/90">{moeda(p.custo)}</span>
+                    <span className="w-24 text-right font-semibold" style={{ color: p.margem >= 0 ? '#22c55e' : '#ff5d73' }}>{moeda(p.margem)}</span>
+                    <span className="w-12 text-right font-mono text-xs text-white/55">{p.pct == null ? '—' : `${p.pct}%`}</span>
+                  </div>
+                )}
+              />
+            </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* ============================== RECEITAS (parcelas) */}
       {view === 'parcelas' && (
-        <div>
-          <div className="mb-3 flex items-center justify-between">
+        <div className="flex h-full min-h-0 flex-col gap-3">
+          <div className="flex shrink-0 items-center justify-between">
             <span className="font-mono text-[10px] tracking-[0.2em] text-white/35 uppercase">{rows.length} parcela(s)</span>
             <div className="flex gap-2">
               <button onClick={() => exportCSV('receitas.csv', rows.map((p) => ({ ...p, status: statusMeta(p.status).label, dueDate: fmtDate(p.dueDate) })), [{ key: 'description', label: 'Descrição' }, { key: 'client', label: 'Cliente' }, { key: 'value', label: 'Valor' }, { key: 'dueDate', label: 'Vencimento' }, { key: 'status', label: 'Status' }])} className="rounded-full border border-white/15 px-4 py-2 font-mono text-[10px] tracking-[0.2em] text-white/60 uppercase hover:text-neon-cyan">↓ CSV</button>
               {!readOnly && <button onClick={() => setPModal({ status: 'a_receber', dueDate: todayISO() })} className="pill-button !px-4 !py-2 text-[11px]">+ Nova receita</button>}
             </div>
           </div>
-          {rows.length === 0 ? (
-            <div className="glass-panel rounded-2xl p-10 text-center font-mono text-xs text-white/40">Nenhuma parcela. Vincule condições de pagamento aos clientes/projetos.</div>
-          ) : (
-            <div className="glass-panel overflow-hidden rounded-2xl">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b border-white/5 text-left font-mono text-[10px] tracking-[0.15em] text-white/35 uppercase"><th className="px-4 py-3">Descrição</th><th className="px-4 py-3">Cliente</th><th className="px-4 py-3">Vencimento</th><th className="px-4 py-3 text-right">Valor</th><th className="px-4 py-3">Status</th><th className="px-4 py-3" /></tr></thead>
-                <tbody>
-                  {rows.map((p) => {
-                    const m = statusMeta(p.status);
-                    return (
-                      <tr key={p.id} className="border-b border-white/5 last:border-0 hover:bg-white/5">
-                        <td className="px-4 py-3 font-medium text-white">{p.description}</td>
-                        <td className="px-4 py-3 text-white/60">{p.client}</td>
-                        <td className="px-4 py-3 text-white/55">{fmtDate(p.dueDate)}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-white">{moeda(p.value)}</td>
-                        <td className="px-4 py-3"><select value={p.status} disabled={readOnly} onChange={(e) => mudarStatus(p, e.target.value as ParcelaStatus)} className="rounded-full border bg-white/5 px-2.5 py-1 font-mono text-[10px] tracking-[0.12em] uppercase outline-none" style={{ color: m.color, borderColor: `${m.color}55` }}>{STATUS.map((s) => <option key={s.value} value={s.value} className="bg-void text-white">{s.label}</option>)}</select></td>
-                        <td className="px-4 py-3 text-right">{!readOnly && (<div className="flex justify-end gap-2"><button onClick={() => setPModal(p)} className="font-mono text-xs text-white/40 hover:text-neon-cyan">editar</button><button onClick={() => confirm('Excluir parcela?') && financeiroStore.remove(p.id)} className="font-mono text-white/40 hover:text-neon-magenta">✕</button></div>)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <div className="min-h-0 flex-1">
+            <AutoPaged
+              items={rows}
+              rowPx={58}
+              empty={<div className="glass-panel flex h-full items-center justify-center rounded-2xl p-10 text-center font-mono text-xs text-white/40">Nenhuma parcela. Vincule condições de pagamento aos clientes/projetos.</div>}
+              render={(p) => {
+                const m = statusMeta(p.status);
+                return (
+                  <div key={p.id} className="glass-panel flex items-center gap-3 rounded-xl px-4 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium text-white">{p.description}</div>
+                      <div className="truncate font-mono text-[10px] text-white/45">{p.client || '—'} · vence {fmtDate(p.dueDate)}</div>
+                    </div>
+                    <span className="shrink-0 font-semibold text-white">{moeda(p.value)}</span>
+                    <select value={p.status} disabled={readOnly} onChange={(e) => mudarStatus(p, e.target.value as ParcelaStatus)} className="shrink-0 rounded-full border bg-white/5 px-2.5 py-1 font-mono text-[10px] tracking-[0.12em] uppercase outline-none" style={{ color: m.color, borderColor: `${m.color}55` }}>{STATUS.map((s) => <option key={s.value} value={s.value} className="bg-void text-white">{s.label}</option>)}</select>
+                    {!readOnly && <div className="flex shrink-0 gap-2"><button onClick={() => setPModal(p)} className="font-mono text-xs text-white/40 hover:text-neon-cyan">editar</button><button onClick={() => confirm('Excluir parcela?') && financeiroStore.remove(p.id)} className="font-mono text-white/40 hover:text-neon-magenta">✕</button></div>}
+                  </div>
+                );
+              }}
+            />
+          </div>
         </div>
       )}
 
       {/* ============================== CUSTOS */}
       {view === 'custos' && (
-        <div>
-          <div className="mb-3 flex items-center justify-between">
+        <div className="flex h-full min-h-0 flex-col gap-3">
+          <div className="flex shrink-0 items-center justify-between">
             <span className="font-mono text-[10px] tracking-[0.2em] text-white/35 uppercase">{custos.length} custo(s)</span>
             <div className="flex gap-2">
               <button onClick={() => exportCSV('custos.csv', custos.map((c) => ({ ...c, category: catMeta(c.category).label, date: fmtDate(c.date) })), [{ key: 'description', label: 'Descrição' }, { key: 'project', label: 'Projeto' }, { key: 'category', label: 'Categoria' }, { key: 'value', label: 'Valor' }, { key: 'date', label: 'Data' }])} className="rounded-full border border-white/15 px-4 py-2 font-mono text-[10px] tracking-[0.2em] text-white/60 uppercase hover:text-neon-cyan">↓ CSV</button>
               {!readOnly && <button onClick={() => setCModal({ category: 'trafego', date: todayISO() })} className="pill-button !px-4 !py-2 text-[11px] !border-neon-magenta/50">+ Novo custo</button>}
             </div>
           </div>
-          {custos.length === 0 ? (
-            <div className="glass-panel rounded-2xl p-10 text-center font-mono text-xs text-white/40">Nenhum custo lançado. Inclua tráfego pago, ferramentas, equipe e terceiros para calcular a margem e o DRE.</div>
-          ) : (
-            <div className="glass-panel overflow-hidden rounded-2xl">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b border-white/5 text-left font-mono text-[10px] tracking-[0.15em] text-white/35 uppercase"><th className="px-4 py-3">Descrição</th><th className="px-4 py-3">Projeto</th><th className="px-4 py-3">Categoria</th><th className="px-4 py-3">Data</th><th className="px-4 py-3 text-right">Valor</th><th className="px-4 py-3" /></tr></thead>
-                <tbody>
-                  {custos.map((c) => {
-                    const m = catMeta(c.category);
-                    return (
-                      <tr key={c.id} className="border-b border-white/5 last:border-0 hover:bg-white/5">
-                        <td className="px-4 py-3 font-medium text-white">{c.description}{c.recurring && <span className="ml-2 font-mono text-[9px] text-white/35">↻ mensal</span>}</td>
-                        <td className="px-4 py-3 text-white/60">{c.project || '—'}</td>
-                        <td className="px-4 py-3"><span className="rounded-full px-2.5 py-1 font-mono text-[9px] tracking-[0.14em] uppercase" style={{ color: m.color, background: `${m.color}1f`, border: `1px solid ${m.color}55` }}>{m.label}</span></td>
-                        <td className="px-4 py-3 text-white/55">{fmtDate(c.date)}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-neon-magenta/90">{moeda(c.value)}</td>
-                        <td className="px-4 py-3 text-right">{!readOnly && (<div className="flex justify-end gap-2"><button onClick={() => setCModal(c)} className="font-mono text-xs text-white/40 hover:text-neon-cyan">editar</button><button onClick={() => confirm('Excluir custo?') && custosStore.remove(c.id)} className="font-mono text-white/40 hover:text-neon-magenta">✕</button></div>)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <div className="min-h-0 flex-1">
+            <AutoPaged
+              items={custos}
+              rowPx={58}
+              empty={<div className="glass-panel flex h-full items-center justify-center rounded-2xl p-10 text-center font-mono text-xs text-white/40">Nenhum custo lançado. Inclua tráfego pago, ferramentas, equipe e terceiros para calcular a margem e o DRE.</div>}
+              render={(c) => {
+                const m = catMeta(c.category);
+                return (
+                  <div key={c.id} className="glass-panel flex items-center gap-3 rounded-xl px-4 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium text-white">{c.description}{c.recurring && <span className="ml-2 font-mono text-[9px] text-white/35">↻ mensal</span>}</div>
+                      <div className="truncate font-mono text-[10px] text-white/45">{c.project || '—'} · {fmtDate(c.date)}</div>
+                    </div>
+                    <span className="shrink-0 rounded-full px-2.5 py-1 font-mono text-[9px] tracking-[0.14em] uppercase" style={{ color: m.color, background: `${m.color}1f`, border: `1px solid ${m.color}55` }}>{m.label}</span>
+                    <span className="shrink-0 font-semibold text-neon-magenta/90">{moeda(c.value)}</span>
+                    {!readOnly && <div className="flex shrink-0 gap-2"><button onClick={() => setCModal(c)} className="font-mono text-xs text-white/40 hover:text-neon-cyan">editar</button><button onClick={() => confirm('Excluir custo?') && custosStore.remove(c.id)} className="font-mono text-white/40 hover:text-neon-magenta">✕</button></div>}
+                  </div>
+                );
+              }}
+            />
+          </div>
         </div>
       )}
 
-      </div>{/* fim da área rolável */}
+      </div>{/* fim da área da visão */}
 
       {/* modal parcela */}
       {pModal && (

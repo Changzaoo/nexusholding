@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { adminSignOut, updateDisplayName, changePassword, setKeepLogged, isKeepLogged } from '../lib/firebase';
 import { siteContent } from '../data/siteContent';
 import { subscribeLeads, updateLead, deleteLead } from '../lib/leads';
@@ -26,6 +26,7 @@ import { MarketingPanel } from './crm/MarketingPanel';
 import { CampanhasPanel } from './crm/CampanhasPanel';
 import { NotificationBell } from './NotificationBell';
 import { Tour } from './Tour';
+import { AutoPaged } from './AutoPaged';
 import { syncMidia } from '../lib/midiaSync';
 import { globalTour, tabTours, hasSeenTour, markTourSeen, type TourStep } from '../lib/tutorial';
 import type { AdminUser } from '../types/admin';
@@ -181,23 +182,23 @@ export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
               acontece AQUI dentro, nunca na página inteira. */}
           <div className="min-h-0 flex-1 overflow-hidden">
             {tab === 'visaogeral' && (
-              <div className="crm-scroll h-full overflow-y-auto pr-1">
-                <div className="flex flex-col gap-8">
+              <div className="flex h-full min-h-0 flex-col gap-4">
+                <div className="shrink-0">
                   <OverviewPanel onGo={(m) => setTab(m as ModuleKey)} />
-                  <div>
-                    <h2 className="mb-4 font-display text-2xl font-bold tracking-wide text-white">Leads</h2>
-                    <LeadsPanel author={author} />
-                  </div>
+                </div>
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <h2 className="mb-2 shrink-0 font-mono text-[11px] tracking-[0.3em] text-white/55 uppercase">Leads</h2>
+                  <div className="min-h-0 flex-1"><LeadsPanel author={author} /></div>
                 </div>
               </div>
             )}
-            {tab === 'pipeline' && <div className="crm-scroll h-full overflow-y-auto pr-1"><PipelinePanel author={author} /></div>}
-            {tab === 'agenda' && <div className="crm-scroll h-full overflow-y-auto pr-1"><AgendaPanel readOnly={false} /></div>}
+            {tab === 'pipeline' && <div className="h-full overflow-hidden"><PipelinePanel author={author} /></div>}
+            {tab === 'agenda' && <div className="h-full overflow-hidden"><AgendaPanel readOnly={false} /></div>}
             {tab === 'financeiro' && <FinanceiroPanel readOnly={false} />}
-            {tab === 'historico' && <div className="crm-scroll h-full overflow-y-auto pr-1"><HistoricoPanel /></div>}
-            {tab === 'marketing' && <div className="crm-scroll h-full overflow-y-auto pr-1"><MarketingPanel /></div>}
-            {tab === 'campanhas' && <div className="crm-scroll h-full overflow-y-auto pr-1"><CampanhasPanel /></div>}
-            {tab === 'config' && <div className="crm-scroll h-full overflow-y-auto pr-1"><SettingsPanel user={user} /></div>}
+            {tab === 'historico' && <div className="h-full overflow-hidden"><HistoricoPanel /></div>}
+            {tab === 'marketing' && <div className="h-full overflow-hidden"><MarketingPanel /></div>}
+            {tab === 'campanhas' && <div className="h-full overflow-hidden"><CampanhasPanel /></div>}
+            {tab === 'config' && <div className="h-full overflow-hidden"><SettingsPanel user={user} /></div>}
             {(['clientes', 'propostas', 'tarefas', 'projetos', 'conteudos'] as ModuleKey[]).includes(tab) && (
               <EntityManager schema={SCHEMAS[tab]} store={STORE_BY_MODULE[tab]!} />
             )}
@@ -233,35 +234,52 @@ function PipelinePanel({ author }: { author: string }) {
     logHistorico(lead.name || lead.email, 'status', `Pipeline → ${stageMeta(status).label}`, author);
   };
 
+  // quantos cards cabem por coluna sem rolar (medido pela altura disponível)
+  const colsRef = useRef<HTMLDivElement>(null);
+  const [rowsFit, setRowsFit] = useState(5);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const h = colsRef.current?.clientHeight ?? 0;
+      setRowsFit(Math.max(1, Math.floor((h - 40) / 56))); // ~40 cabeçalho, ~56 por card
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (colsRef.current) ro.observe(colsRef.current);
+    window.addEventListener('resize', measure);
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
+  }, []);
+
   return (
-    <>
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="grid shrink-0 grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { label: 'Leads totais', value: leads.length, color: '#cfe2ff' },
           { label: 'Em aberto', value: open, color: '#41e8ff' },
           { label: 'Fechados', value: won, color: '#22c55e' },
           { label: 'Conversão', value: `${conv}%`, color: '#8b5cf6' },
         ].map((k) => (
-          <div key={k.label} className="glass-panel rounded-2xl p-4">
-            <div className="font-display text-3xl font-bold" style={{ color: k.color }}>{k.value}</div>
+          <div key={k.label} className="glass-panel rounded-2xl p-3">
+            <div className="font-display text-2xl font-bold" style={{ color: k.color }}>{k.value}</div>
             <div className="mt-1 font-mono text-[9px] tracking-[0.25em] text-white/45 uppercase">{k.label}</div>
           </div>
         ))}
       </div>
 
-      <div className="mb-3 flex items-center justify-between">
+      <div className="flex shrink-0 items-center justify-between">
         <span className="font-mono text-[10px] tracking-[0.2em] text-white/35 uppercase">Arraste os cards entre os estágios</span>
         <button onClick={() => exportLeads(leads)} className={CSV_BTN}>↓ CSV</button>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto pb-3">
+      <div ref={colsRef} className="flex min-h-0 flex-1 gap-2">
         {PIPELINE.map((stage) => {
           const col = leads.filter((l) => l.status === stage.value);
+          const shown = col.slice(0, rowsFit);
+          const extra = col.length - shown.length;
           const isOver = dragOver === stage.value;
           return (
             <div
               key={stage.value}
-              className="flex w-[230px] shrink-0 flex-col rounded-xl p-1 transition-colors"
+              className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl p-1 transition-colors"
               style={{ background: isOver ? `${stage.color}1a` : 'transparent', outline: isOver ? `1px dashed ${stage.color}` : 'none' }}
               onDragOver={(e) => { e.preventDefault(); if (dragOver !== stage.value) setDragOver(stage.value); }}
               onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(null); }}
@@ -273,25 +291,25 @@ function PipelinePanel({ author }: { author: string }) {
                 setDragOver(null);
               }}
             >
-              <div className="mb-2 flex items-center justify-between rounded-lg px-2 py-1.5" style={{ background: `${stage.color}14`, border: `1px solid ${stage.color}40` }}>
-                <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: stage.color }}>{stage.label}</span>
+              <div className="mb-2 flex shrink-0 items-center justify-between rounded-lg px-2 py-1.5" style={{ background: `${stage.color}14`, border: `1px solid ${stage.color}40` }}>
+                <span className="truncate font-mono text-[9px] tracking-[0.16em] uppercase" style={{ color: stage.color }}>{stage.label}</span>
                 <span className="font-mono text-[10px] text-white/45">{col.length}</span>
               </div>
-              <div className="flex min-h-[60px] flex-col gap-2">
-                {col.map((l) => (
+              <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+                {shown.map((l) => (
                   <div
                     key={l.id}
                     draggable
                     onDragStart={(e) => e.dataTransfer.setData('text/plain', l.id)}
                     onClick={() => setSel(l.id)}
-                    className="glass-panel cursor-grab rounded-lg p-3 text-left transition-colors hover:bg-white/5 active:cursor-grabbing"
+                    className="glass-panel cursor-grab rounded-lg p-2.5 text-left transition-colors hover:bg-white/5 active:cursor-grabbing"
                   >
-                    <div className="truncate text-sm font-medium text-white">{l.name || l.email}</div>
+                    <div className="truncate text-sm font-medium text-white">{l.name || l.email || '—'}</div>
                     {l.company && <div className="truncate font-mono text-[10px] text-white/45">{l.company}</div>}
-                    <div className="mt-1 font-mono text-[9px] text-white/30">{fmtDate(l.createdAt)}</div>
                   </div>
                 ))}
                 {col.length === 0 && <div className="rounded-lg border border-dashed border-white/10 p-3 text-center font-mono text-[10px] text-white/25">vazio</div>}
+                {extra > 0 && <button onClick={() => setSel(shown[shown.length - 1]?.id ?? null)} className="shrink-0 rounded-lg border border-white/10 py-1 text-center font-mono text-[9px] tracking-[0.15em] text-white/45 uppercase hover:text-neon-cyan">+{extra} mais</button>}
               </div>
             </div>
           );
@@ -305,7 +323,7 @@ function PipelinePanel({ author }: { author: string }) {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -333,9 +351,9 @@ function LeadsPanel({ author }: { author: string }) {
   };
 
   return (
-    <>
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar lead…" className="min-w-[220px] flex-1 rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none focus:border-neon-cyan/60 placeholder:text-white/25" />
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="flex shrink-0 flex-wrap items-center gap-3">
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar lead…" className="min-w-[200px] flex-1 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-white outline-none focus:border-neon-cyan/60 placeholder:text-white/25" />
         <div className="flex flex-wrap gap-1.5">
           <Chip active={filter === 'all'} onClick={() => setFilter('all')} label="Todos" color="#cfe2ff" />
           {PIPELINE.map((s) => <Chip key={s.value} active={filter === s.value} onClick={() => setFilter(s.value)} label={s.label} color={s.color} />)}
@@ -343,29 +361,37 @@ function LeadsPanel({ author }: { author: string }) {
         <button onClick={() => exportLeads(filtered)} className={CSV_BTN}>↓ CSV</button>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_minmax(320px,400px)]">
-        <div className="flex flex-col gap-2.5">
-          {filtered.length === 0 && <div className="glass-panel rounded-2xl p-10 text-center font-mono text-xs text-white/40">Nenhum lead.</div>}
-          {filtered.map((l) => {
+      <div className="min-h-0 flex-1">
+        <AutoPaged
+          items={filtered}
+          rowPx={64}
+          colMinPx={320}
+          empty={<div className="glass-panel flex h-full items-center justify-center rounded-2xl p-10 text-center font-mono text-xs text-white/40">Nenhum lead.</div>}
+          render={(l) => {
             const m = stageMeta(l.status);
             return (
-              <button key={l.id} onClick={() => setSel(l.id)} className={`glass-panel rounded-xl p-4 text-left transition-colors ${sel === l.id ? 'ring-1 ring-neon-cyan/60' : 'hover:bg-white/5'}`}>
+              <button key={l.id} onClick={() => setSel(l.id)} className="glass-panel rounded-xl p-3.5 text-left transition-colors hover:bg-white/5">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className="truncate font-medium text-white">{l.name || '—'}{l.company && <span className="text-white/40"> · {l.company}</span>}</div>
-                    <div className="mt-0.5 truncate font-mono text-[11px] text-white/45">{l.email}{l.phone ? ` · ${l.phone}` : ''}</div>
+                    <div className="mt-0.5 truncate font-mono text-[11px] text-white/45">{l.email || '—'}{l.phone ? ` · ${l.phone}` : ''}</div>
                   </div>
                   <span className="shrink-0 rounded-full px-2.5 py-1 font-mono text-[9px] tracking-[0.18em] uppercase" style={{ color: m.color, background: `${m.color}1f`, border: `1px solid ${m.color}55` }}>{m.label}</span>
                 </div>
               </button>
             );
-          })}
-        </div>
-        <div className="lg:sticky lg:top-6 lg:self-start">
-          {current ? <LeadDetail key={current.id} lead={current} onClose={() => setSel(null)} onMove={move} author={author} /> : <div className="glass-panel hidden rounded-2xl p-8 text-center font-mono text-xs text-white/35 lg:block">Selecione um lead.</div>}
-        </div>
+          }}
+        />
       </div>
-    </>
+
+      {current && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && setSel(null)}>
+          <div className="w-full max-w-md">
+            <LeadDetail key={current.id} lead={current} onClose={() => setSel(null)} onMove={move} author={author} />
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -442,9 +468,11 @@ function HistoricoPanel() {
   useEffect(() => historicoStore.subscribe(setItems), []);
   const icon = (t: Historico['type']) => (t === 'status' ? '⟳' : t === 'nota' ? '✎' : t === 'contato' ? '☎' : '◷');
   return (
-    <div className="flex flex-col gap-2.5">
-      {items.length === 0 && <div className="glass-panel rounded-2xl p-10 text-center font-mono text-xs text-white/40">Sem registros de atendimento ainda. Mover leads no pipeline gera histórico automático.</div>}
-      {items.map((h) => (
+    <AutoPaged
+      items={items}
+      rowPx={64}
+      empty={<div className="glass-panel flex h-full items-center justify-center rounded-2xl p-10 text-center font-mono text-xs text-white/40">Sem registros de atendimento ainda. Mover leads no pipeline gera histórico automático.</div>}
+      render={(h) => (
         <div key={h.id} className="glass-panel flex items-start gap-3 rounded-xl p-4">
           <span className="mt-0.5 text-neon-cyan">{icon(h.type)}</span>
           <div className="min-w-0 flex-1">
@@ -452,8 +480,8 @@ function HistoricoPanel() {
             <div className="mt-0.5 font-mono text-[10px] text-white/35">{h.author ?? 'sistema'} · {fmtDate(h.createdAt)}</div>
           </div>
         </div>
-      ))}
-    </div>
+      )}
+    />
   );
 }
 

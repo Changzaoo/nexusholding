@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { clientesStore, type Cliente } from '../../lib/crm';
 import { syncMidia, listEntregaveis, FOLDER_LABEL, type SyncResult, type Entregavel } from '../../lib/midiaSync';
+import { AutoPaged } from '../AutoPaged';
 
 const moeda = (v: number) =>
   (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
@@ -9,9 +10,9 @@ export function MarketingPanel() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [result, setResult] = useState<SyncResult | null>(null);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [modal, setModal] = useState<Cliente | null>(null);
   const [entregaveis, setEntregaveis] = useState<Record<string, Entregavel[]>>({});
-  const [loadingEnt, setLoadingEnt] = useState<string | null>(null);
+  const [loadingEnt, setLoadingEnt] = useState(false);
 
   useEffect(() => clientesStore.subscribe(setClientes), []);
 
@@ -29,27 +30,23 @@ export function MarketingPanel() {
     .sort((a, b) => (b.midiaSyncedAt || 0) - (a.midiaSyncedAt || 0));
   const soCrm = clientes.filter((c) => !c.midiaId && c.name?.trim());
 
-  const toggle = async (c: Cliente) => {
+  const abrirEntregaveis = async (c: Cliente) => {
     if (!c.midiaId) return;
-    if (expanded === c.id) { setExpanded(null); return; }
-    setExpanded(c.id);
+    setModal(c);
     if (!entregaveis[c.id]) {
-      setLoadingEnt(c.id);
+      setLoadingEnt(true);
       try {
         const items = await listEntregaveis(c.midiaId);
         setEntregaveis((m) => ({ ...m, [c.id]: items }));
       } catch { setEntregaveis((m) => ({ ...m, [c.id]: [] })); }
-      setLoadingEnt(null);
+      setLoadingEnt(false);
     }
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-display text-2xl font-bold tracking-wide text-white">Marketing · Fábrica de Mídia</h2>
-          <p className="mt-1 font-mono text-xs text-white/45">Clientes e entregáveis do Nexus Digital 90, sincronizados nos dois sentidos com o CRM via Nexus Bridge.</p>
-        </div>
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
+        <p className="font-mono text-xs text-white/45">Clientes e entregáveis do Nexus Digital 90, sincronizados nos dois sentidos via Nexus Bridge.</p>
         <button
           onClick={sincronizar}
           disabled={syncing}
@@ -60,80 +57,87 @@ export function MarketingPanel() {
       </div>
 
       {result?.error && (
-        <div className="glass-panel rounded-2xl border border-neon-magenta/30 p-5 text-sm text-neon-magenta/90">
+        <div className="glass-panel shrink-0 rounded-2xl border border-neon-magenta/30 p-4 text-sm text-neon-magenta/90">
           Não foi possível sincronizar com a Mídia: {result.error}
-          <div className="mt-1 font-mono text-[10px] text-white/40">Verifique a Nexus Bridge (api.nexusholding.xyz) e as chaves de integração.</div>
         </div>
       )}
-
       {result && !result.error && (
-        <div className="glass-panel rounded-2xl p-4 font-mono text-[11px] text-white/55">
-          Última sincronização: {result.pulledCriados} cliente(s) trazido(s) da Mídia, {result.pulledAtualizados} atualizado(s),
-          {' '}{result.pushed} enviado(s) do CRM para a Mídia, {result.leadsCriados} novo(s) lead(s) no pipeline · {result.total} no total na fábrica.
+        <div className="glass-panel shrink-0 rounded-2xl p-3 font-mono text-[11px] text-white/55">
+          {result.pulledCriados} trazido(s), {result.pulledAtualizados} atualizado(s), {result.pushed} enviado(s), {result.leadsCriados} novo(s) lead(s) · {result.total} na fábrica.
         </div>
       )}
 
-      {/* clientes vinculados à Mídia, com entregáveis */}
-      <div>
-        <div className="mb-3 font-mono text-[10px] tracking-[0.25em] text-white/40 uppercase">Na fábrica de mídia ({naMidia.length})</div>
-        {naMidia.length === 0 ? (
-          <div className="glass-panel rounded-2xl p-8 text-center font-mono text-xs text-white/35">Nenhum cliente sincronizado ainda. Crie clientes no CRM ou na fábrica e clique em “Sincronizar agora”.</div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {naMidia.map((c) => {
-              const etapas = c.midiaEtapas ?? 0;
-              return (
-                <div key={c.id} className="glass-panel rounded-2xl p-5">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="truncate font-medium text-white">{c.name}</div>
-                    {(c.midiaAguardando ?? 0) > 0 && <span className="shrink-0 rounded-full bg-neon-acid/15 px-2 py-0.5 font-mono text-[9px] text-neon-acid">{c.midiaAguardando} p/ aprovar</span>}
-                  </div>
-                  <div className="mt-1 font-mono text-[10px] text-white/40">{[c.segment, c.city].filter(Boolean).join(' · ') || '—'}</div>
-                  <div className="mt-3 flex items-end justify-between">
-                    <div>
-                      <div className="font-display text-xl font-bold text-neon-cyan">{c.midiaReceita != null ? moeda(c.midiaReceita) : '—'}</div>
-                      <div className="font-mono text-[9px] tracking-[0.2em] text-white/35 uppercase">receita proj./mês{c.midiaRoas != null ? ` · ${c.midiaRoas}x` : ''}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-display text-lg font-bold text-white">{c.midiaMateriais ?? 0}</div>
-                      <div className="font-mono text-[9px] tracking-[0.2em] text-white/35 uppercase">materiais</div>
-                    </div>
-                  </div>
-                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
-                    <div className="h-full rounded-full bg-neon-cyan" style={{ width: `${Math.round((etapas / 8) * 100)}%` }} />
-                  </div>
-                  <div className="mt-1 font-mono text-[9px] text-white/35">{etapas}/8 etapas concluídas</div>
+      <div className="shrink-0 font-mono text-[10px] tracking-[0.25em] text-white/40 uppercase">Na fábrica de mídia ({naMidia.length})</div>
 
-                  <button onClick={() => toggle(c)} className="mt-3 w-full rounded-lg border border-white/12 px-3 py-1.5 font-mono text-[9px] tracking-[0.2em] text-white/55 uppercase transition-colors hover:text-neon-cyan">
-                    {expanded === c.id ? '▲ ocultar entregáveis' : '▼ ver entregáveis'}
-                  </button>
-
-                  {expanded === c.id && (
-                    <div className="mt-3 border-t border-white/10 pt-3">
-                      {loadingEnt === c.id ? (
-                        <div className="font-mono text-[10px] text-white/35">Carregando entregáveis…</div>
-                      ) : (entregaveis[c.id]?.length ? (
-                        <EntregaveisList items={entregaveis[c.id]} />
-                      ) : (
-                        <div className="font-mono text-[10px] text-white/35">Nenhum material gerado ainda.</div>
-                      ))}
-                    </div>
-                  )}
+      <div className="min-h-0 flex-1">
+        <AutoPaged
+          items={naMidia}
+          rowPx={200}
+          colMinPx={260}
+          empty={<div className="glass-panel flex h-full items-center justify-center rounded-2xl p-8 text-center font-mono text-xs text-white/35">Nenhum cliente sincronizado ainda. Crie clientes no CRM ou na fábrica e clique em “Sincronizar agora”.</div>}
+          render={(c) => {
+            const etapas = c.midiaEtapas ?? 0;
+            return (
+              <div key={c.id} className="glass-panel rounded-2xl p-5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="truncate font-medium text-white">{c.name}</div>
+                  {(c.midiaAguardando ?? 0) > 0 && <span className="shrink-0 rounded-full bg-neon-acid/15 px-2 py-0.5 font-mono text-[9px] text-neon-acid">{c.midiaAguardando} p/ aprovar</span>}
                 </div>
-              );
-            })}
-          </div>
-        )}
+                <div className="mt-1 font-mono text-[10px] text-white/40">{[c.segment, c.city].filter(Boolean).join(' · ') || '—'}</div>
+                <div className="mt-3 flex items-end justify-between">
+                  <div>
+                    <div className="font-display text-xl font-bold text-neon-cyan">{c.midiaReceita != null ? moeda(c.midiaReceita) : '—'}</div>
+                    <div className="font-mono text-[9px] tracking-[0.2em] text-white/35 uppercase">receita proj./mês{c.midiaRoas != null ? ` · ${c.midiaRoas}x` : ''}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-display text-lg font-bold text-white">{c.midiaMateriais ?? 0}</div>
+                    <div className="font-mono text-[9px] tracking-[0.2em] text-white/35 uppercase">materiais</div>
+                  </div>
+                </div>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+                  <div className="h-full rounded-full bg-neon-cyan" style={{ width: `${Math.round((etapas / 8) * 100)}%` }} />
+                </div>
+                <div className="mt-1 font-mono text-[9px] text-white/35">{etapas}/8 etapas concluídas</div>
+                <button onClick={() => abrirEntregaveis(c)} className="mt-3 w-full rounded-lg border border-white/12 px-3 py-1.5 font-mono text-[9px] tracking-[0.2em] text-white/55 uppercase transition-colors hover:text-neon-cyan">ver entregáveis</button>
+              </div>
+            );
+          }}
+        />
       </div>
 
-      {/* clientes do CRM que serão enviados à fábrica no próximo sync */}
       {soCrm.length > 0 && (
-        <div>
-          <div className="mb-2 font-mono text-[10px] tracking-[0.25em] text-white/40 uppercase">Só no CRM — serão enviados à fábrica ({soCrm.length})</div>
+        <div className="shrink-0">
+          <div className="mb-1.5 font-mono text-[10px] tracking-[0.25em] text-white/40 uppercase">Só no CRM — irão à fábrica ({soCrm.length})</div>
           <div className="flex flex-wrap gap-2">
-            {soCrm.slice(0, 20).map((c) => (
+            {soCrm.slice(0, 12).map((c) => (
               <span key={c.id} className="rounded-full border border-white/12 px-3 py-1 font-mono text-[10px] text-white/55">{c.name}</span>
             ))}
+            {soCrm.length > 12 && <span className="px-2 py-1 font-mono text-[10px] text-white/35">+{soCrm.length - 12}</span>}
+          </div>
+        </div>
+      )}
+
+      {modal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && setModal(null)}>
+          <div className="glass-panel flex max-h-[80vh] w-full max-w-md flex-col rounded-2xl p-6">
+            <div className="mb-3 flex shrink-0 items-center justify-between">
+              <h3 className="font-display text-xl tracking-wide text-white">Entregáveis · {modal.name}</h3>
+              <button onClick={() => setModal(null)} className="font-mono text-white/40 hover:text-white">✕</button>
+            </div>
+            <div className="min-h-0 flex-1">
+              {loadingEnt ? (
+                <div className="font-mono text-[11px] text-white/40">Carregando…</div>
+              ) : entregaveis[modal.id]?.length ? (
+                <AutoPaged items={entregaveis[modal.id]} rowPx={26} render={(e) => (
+                  <div key={e.folder + e.file} className="flex items-center justify-between gap-2 border-b border-white/5 py-1">
+                    <span className="truncate font-mono text-[11px] text-white/70">{e.file}</span>
+                    <span className="shrink-0 font-mono text-[9px] tracking-[0.15em] text-neon-violet uppercase">{FOLDER_LABEL[e.folder] || e.folder}</span>
+                  </div>
+                )} />
+              ) : (
+                <div className="font-mono text-[11px] text-white/40">Nenhum material gerado ainda.</div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -141,24 +145,3 @@ export function MarketingPanel() {
   );
 }
 
-/** Agrupa os entregáveis por pasta/etapa e lista os arquivos. */
-function EntregaveisList({ items }: { items: Entregavel[] }) {
-  const byFolder = items.reduce<Record<string, string[]>>((acc, it) => {
-    (acc[it.folder] ??= []).push(it.file);
-    return acc;
-  }, {});
-  return (
-    <div className="flex flex-col gap-2">
-      {Object.entries(byFolder).map(([folder, files]) => (
-        <div key={folder}>
-          <div className="font-mono text-[9px] tracking-[0.2em] text-neon-violet uppercase">{FOLDER_LABEL[folder] || folder}</div>
-          <ul className="mt-1 flex flex-col gap-0.5">
-            {files.map((f) => (
-              <li key={f} className="truncate font-mono text-[10px] text-white/60">· {f}</li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </div>
-  );
-}

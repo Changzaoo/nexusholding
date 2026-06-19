@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { campanhasStore, clientesStore, moeda, exportCSV, type Campanha, type CampanhaCanal, type Cliente } from '../../lib/crm';
+import { AutoPaged } from '../AutoPaged';
 
 const CANAIS: { value: CampanhaCanal; label: string; color: string }[] = [
   { value: 'google', label: 'Google Ads', color: '#41e8ff' },
@@ -70,9 +71,9 @@ export function CampanhasPanel({ readOnly = false }: { readOnly?: boolean }) {
   };
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       {/* KPIs de captação */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid shrink-0 grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         {[
           { label: 'Investimento', value: money(totais.spend), color: '#ff5d73' },
           { label: 'Leads', value: num(totais.leads), color: '#41e8ff' },
@@ -90,7 +91,7 @@ export function CampanhasPanel({ readOnly = false }: { readOnly?: boolean }) {
 
       {/* desempenho por canal */}
       {porCanal.length > 0 && (
-        <div className="glass-panel overflow-x-auto rounded-2xl">
+        <div className="glass-panel shrink-0 overflow-x-auto rounded-2xl">
           <h3 className="px-5 pt-4 font-mono text-[11px] tracking-[0.25em] text-neon-cyan uppercase">Captação por canal</h3>
           <table className="mt-2 w-full text-sm">
             <thead>
@@ -124,7 +125,7 @@ export function CampanhasPanel({ readOnly = false }: { readOnly?: boolean }) {
       )}
 
       {/* lista de campanhas */}
-      <div className="flex items-center justify-between">
+      <div className="flex shrink-0 items-center justify-between">
         <span className="font-mono text-[10px] tracking-[0.2em] text-white/35 uppercase">{campanhas.length} campanha(s)</span>
         <div className="flex gap-2">
           <button onClick={() => exportCSV('campanhas.csv', campanhas.map((c) => { const m = metrics(c); return { ...c, channel: canalMeta(c.channel).label, cpl: m.cpl.toFixed(2), cpa: m.cpa.toFixed(2), roas: m.roas.toFixed(2) }; }), [{ key: 'name', label: 'Campanha' }, { key: 'channel', label: 'Canal' }, { key: 'client', label: 'Cliente' }, { key: 'spend', label: 'Investimento' }, { key: 'leads', label: 'Leads' }, { key: 'sales', label: 'Vendas' }, { key: 'revenue', label: 'Receita' }, { key: 'cpl', label: 'CPL' }, { key: 'roas', label: 'ROAS' }])} className="rounded-full border border-white/15 px-4 py-2 font-mono text-[10px] tracking-[0.2em] text-white/60 uppercase hover:text-neon-cyan">↓ CSV</button>
@@ -132,9 +133,13 @@ export function CampanhasPanel({ readOnly = false }: { readOnly?: boolean }) {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        {campanhas.length === 0 && <div className="glass-panel rounded-2xl p-10 text-center font-mono text-xs text-white/40 md:col-span-2">Nenhuma campanha. Cadastre o investimento e os resultados (Google Ads, Meta Ads…) para acompanhar a captação.</div>}
-        {campanhas.map((c) => {
+      <div className="min-h-0 flex-1">
+        <AutoPaged
+          items={campanhas}
+          rowPx={158}
+          colMinPx={320}
+          empty={<div className="glass-panel flex h-full items-center justify-center rounded-2xl p-10 text-center font-mono text-xs text-white/40">Nenhuma campanha. Cadastre o investimento e os resultados (Google Ads, Meta Ads…) para acompanhar a captação.</div>}
+          render={(c) => {
           const m = metrics(c);
           const canal = canalMeta(c.channel);
           const st = STATUS.find((s) => s.value === c.status) ?? STATUS[0];
@@ -163,7 +168,8 @@ export function CampanhasPanel({ readOnly = false }: { readOnly?: boolean }) {
               )}
             </div>
           );
-        })}
+          }}
+        />
       </div>
 
       {modal && (

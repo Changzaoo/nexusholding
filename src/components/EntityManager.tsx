@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { clientesStore, exportCSV, leadsStore, type BaseRecord, type EntitySchema, type FieldDef, type Store } from '../lib/crm';
+import { AutoPaged } from './AutoPaged';
 
 interface Props<T extends BaseRecord> {
   schema: EntitySchema;
@@ -176,13 +177,12 @@ export function EntityManager<T extends BaseRecord>({ schema, store, readOnly = 
         </div>
       )}
 
-      <div className="crm-scroll flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-1">
-        {filtered.length === 0 && (
-          <div className="glass-panel rounded-2xl p-8 text-center font-mono text-xs text-white/40">
-            Nenhum registro. {readOnly ? '' : `Clique em “+ Novo ${schema.singular}”.`}
-          </div>
-        )}
-        {filtered.map((it) =>
+      <div className="min-h-0 flex-1">
+        <AutoPaged
+          items={filtered}
+          rowPx={70}
+          empty={<div className="glass-panel flex h-full items-center justify-center rounded-2xl p-8 text-center font-mono text-xs text-white/40">Nenhum registro. {readOnly ? '' : `Clique em “+ Novo ${schema.singular}”.`}</div>}
+          render={(it) =>
           editId === it.id && !readOnly ? (
             <RecordForm
               key={it.id}
@@ -219,8 +219,9 @@ export function EntityManager<T extends BaseRecord>({ schema, store, readOnly = 
                 )}
               </div>
             </div>
-          ),
-        )}
+          )
+          }
+        />
       </div>
     </div>
   );
