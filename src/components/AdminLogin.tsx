@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { adminSignIn, isFirebaseConfigured } from '../lib/firebase';
+import { adminSignIn, isFirebaseConfigured, isKeepLogged } from '../lib/firebase';
 
 interface AdminLoginProps {
   onClose: () => void;
@@ -13,6 +13,7 @@ interface AdminLoginProps {
 export function AdminLogin({ onClose, onSuccess }: AdminLoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [keep, setKeep] = useState(isKeepLogged());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -21,7 +22,8 @@ export function AdminLogin({ onClose, onSuccess }: AdminLoginProps) {
     setError(null);
     setLoading(true);
     try {
-      await adminSignIn(email, password);
+      // autentica sempre com quem está digitando agora e respeita o "manter conectado".
+      await adminSignIn(email, password, keep);
       onSuccess();
     } catch (err) {
       const code = (err as { code?: string }).code ?? '';
@@ -86,6 +88,18 @@ export function AdminLogin({ onClose, onSuccess }: AdminLoginProps) {
               className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-neon-cyan/60"
               placeholder="••••••••"
             />
+          </label>
+
+          <label className="flex cursor-pointer items-center gap-2.5 select-none">
+            <input
+              type="checkbox"
+              checked={keep}
+              onChange={(e) => setKeep(e.target.checked)}
+              className="h-4 w-4 accent-neon-cyan"
+            />
+            <span className="font-mono text-[11px] tracking-[0.06em] text-white/65">
+              Manter-me conectado neste dispositivo
+            </span>
           </label>
 
           {error && (
