@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { agendaStore, type Evento, type EventoTipo } from '../../lib/crm';
+import { AutoPaged } from '../AutoPaged';
 
 const TIPOS: { value: EventoTipo; label: string; color: string }[] = [
   { value: 'reuniao', label: 'Reunião', color: '#41e8ff' },
@@ -45,9 +46,11 @@ export function AgendaPanel({ readOnly = false }: { readOnly?: boolean }) {
   };
   const excluir = async () => { if (modal?.id && confirm('Excluir evento?')) { await agendaStore.remove(modal.id); setModal(null); } };
 
+  const linhas = Math.ceil(celulas.length / 7);
+
   return (
-    <div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div className="flex rounded-full border border-white/10 bg-black/30 p-1">
           {(['mes', 'lista'] as const).map((v) => (
             <button key={v} onClick={() => setVista(v)} className={`rounded-full px-4 py-1.5 font-mono text-[10px] tracking-[0.2em] uppercase transition-colors ${vista === v ? 'bg-white/12 text-white' : 'text-white/45 hover:text-white/80'}`}>
@@ -55,36 +58,41 @@ export function AgendaPanel({ readOnly = false }: { readOnly?: boolean }) {
             </button>
           ))}
         </div>
+        {vista === 'mes' && (
+          <div className="flex items-center gap-2">
+            <button onClick={() => navMes(-1)} className="rounded-full border border-white/10 px-3 py-1 text-white/60 hover:text-white">←</button>
+            <h2 className="font-display text-lg tracking-wide text-white">{MESES[ref.mes]} {ref.ano}</h2>
+            <button onClick={() => navMes(1)} className="rounded-full border border-white/10 px-3 py-1 text-white/60 hover:text-white">→</button>
+          </div>
+        )}
         {!readOnly && (
           <button onClick={() => setModal({ type: 'reuniao', date: todayISO() })} className="pill-button !px-4 !py-2 text-[11px]">+ Novo evento</button>
         )}
       </div>
 
       {vista === 'mes' ? (
-        <div className="glass-panel rounded-2xl p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <button onClick={() => navMes(-1)} className="rounded-full border border-white/10 px-3 py-1 text-white/60 hover:text-white">←</button>
-            <h2 className="font-display text-xl tracking-wide text-white">{MESES[ref.mes]} {ref.ano}</h2>
-            <button onClick={() => navMes(1)} className="rounded-full border border-white/10 px-3 py-1 text-white/60 hover:text-white">→</button>
-          </div>
-          <div className="grid grid-cols-7 gap-1.5">
+        <div className="glass-panel flex min-h-0 flex-1 flex-col rounded-2xl p-3">
+          <div className="grid shrink-0 grid-cols-7 gap-1.5">
             {DIAS.map((d) => <div key={d} className="py-1 text-center font-mono text-[10px] tracking-[0.15em] text-white/35 uppercase">{d}</div>)}
+          </div>
+          <div className="mt-1.5 grid min-h-0 flex-1 grid-cols-7 gap-1.5" style={{ gridTemplateRows: `repeat(${linhas}, minmax(0,1fr))` }}>
             {celulas.map((dia, i) => {
               if (!dia) return <div key={i} />;
               const evs = evDoDia(dia);
               const ehHoje = isoDe(dia) === todayISO();
               return (
-                <div key={i} className={`min-h-[88px] rounded-lg border p-1.5 ${ehHoje ? 'border-neon-cyan/40 bg-neon-cyan/5' : 'border-white/5 bg-white/[0.02]'}`}>
-                  <div className={`mb-1 font-mono text-[10px] ${ehHoje ? 'font-semibold text-neon-cyan' : 'text-white/40'}`}>{dia}</div>
-                  <div className="flex flex-col gap-1">
-                    {evs.map((e) => {
+                <div key={i} className={`flex min-h-0 flex-col overflow-hidden rounded-lg border p-1 ${ehHoje ? 'border-neon-cyan/40 bg-neon-cyan/5' : 'border-white/5 bg-white/[0.02]'}`}>
+                  <div className={`shrink-0 font-mono text-[10px] ${ehHoje ? 'font-semibold text-neon-cyan' : 'text-white/40'}`}>{dia}</div>
+                  <div className="mt-0.5 flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden">
+                    {evs.slice(0, 3).map((e) => {
                       const m = tipoMeta(e.type);
                       return (
-                        <button key={e.id} onClick={() => !readOnly && setModal(e)} className="w-full truncate rounded px-1.5 py-1 text-left text-[10px]" style={{ background: `${m.color}1f`, color: m.color }}>
+                        <button key={e.id} onClick={() => !readOnly && setModal(e)} className="w-full shrink-0 truncate rounded px-1.5 py-0.5 text-left text-[10px]" style={{ background: `${m.color}1f`, color: m.color }}>
                           {e.time && <span className="opacity-70">{e.time} </span>}{e.title}
                         </button>
                       );
                     })}
+                    {evs.length > 3 && <span className="shrink-0 px-1 font-mono text-[9px] text-white/40">+{evs.length - 3}</span>}
                   </div>
                 </div>
               );
@@ -92,26 +100,31 @@ export function AgendaPanel({ readOnly = false }: { readOnly?: boolean }) {
           </div>
         </div>
       ) : (
-        <div className="flex flex-col gap-2.5">
-          {futuros.length === 0 && <div className="glass-panel rounded-2xl p-10 text-center font-mono text-xs text-white/40">Nenhum evento futuro.</div>}
-          {futuros.map((e) => {
-            const m = tipoMeta(e.type);
-            return (
-              <button key={e.id} onClick={() => !readOnly && setModal(e)} className="glass-panel flex items-center justify-between gap-4 rounded-xl p-4 text-left transition-colors hover:bg-white/5">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 text-center">
-                    <div className="font-display text-lg text-white">{e.date.slice(8, 10)}</div>
-                    <div className="font-mono text-[9px] text-white/40 uppercase">{MESES[Number(e.date.slice(5, 7)) - 1].slice(0, 3)}</div>
+        <div className="min-h-0 flex-1">
+          <AutoPaged
+            items={futuros}
+            rowPx={62}
+            colMinPx={360}
+            empty={<div className="glass-panel flex h-full items-center justify-center rounded-2xl p-10 text-center font-mono text-xs text-white/40">Nenhum evento futuro.</div>}
+            render={(e) => {
+              const m = tipoMeta(e.type);
+              return (
+                <button key={e.id} onClick={() => !readOnly && setModal(e)} className="glass-panel flex w-full items-center justify-between gap-4 rounded-xl p-3.5 text-left transition-colors hover:bg-white/5">
+                  <div className="flex min-w-0 items-center gap-4">
+                    <div className="w-10 shrink-0 text-center">
+                      <div className="font-display text-lg text-white">{e.date.slice(8, 10)}</div>
+                      <div className="font-mono text-[9px] text-white/40 uppercase">{MESES[Number(e.date.slice(5, 7)) - 1].slice(0, 3)}</div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate font-medium text-white">{e.title}</div>
+                      <div className="truncate font-mono text-[11px] text-white/45">{e.time ? `${e.time} · ` : ''}{e.owner || '—'}{e.relatedTo ? ` · ${e.relatedTo}` : ''}</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="font-medium text-white">{e.title}</div>
-                    <div className="font-mono text-[11px] text-white/45">{e.time ? `${e.time} · ` : ''}{e.owner || '—'}{e.relatedTo ? ` · ${e.relatedTo}` : ''}</div>
-                  </div>
-                </div>
-                <span className="shrink-0 rounded-full px-2.5 py-1 font-mono text-[9px] tracking-[0.18em] uppercase" style={{ color: m.color, background: `${m.color}1f`, border: `1px solid ${m.color}55` }}>{m.label}</span>
-              </button>
-            );
-          })}
+                  <span className="shrink-0 rounded-full px-2.5 py-1 font-mono text-[9px] tracking-[0.18em] uppercase" style={{ color: m.color, background: `${m.color}1f`, border: `1px solid ${m.color}55` }}>{m.label}</span>
+                </button>
+              );
+            }}
+          />
         </div>
       )}
 

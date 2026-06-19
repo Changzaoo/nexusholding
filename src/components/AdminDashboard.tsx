@@ -188,10 +188,10 @@ export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
             )}
             {tab === 'pipeline' && <div className="h-full overflow-hidden"><PipelinePanel author={author} /></div>}
             {tab === 'clientes' && <ClientesPanel />}
-            {tab === 'agenda' && <div className="crm-scroll h-full overflow-y-auto pr-1"><AgendaPanel readOnly={false} /></div>}
+            {tab === 'agenda' && <AgendaPanel readOnly={false} />}
             {tab === 'financeiro' && <FinanceiroPanel readOnly={false} />}
             {tab === 'campanhas' && <CampanhasPanel />}
-            {tab === 'config' && <div className="crm-scroll h-full overflow-y-auto pr-1"><SettingsPanel user={user} /></div>}
+            {tab === 'config' && <SettingsPanel user={user} />}
             {tab === 'tarefas' && <EntityManager schema={SCHEMAS.tarefas} store={STORE_BY_MODULE.tarefas!} />}
           </div>
         </div>
@@ -536,56 +536,58 @@ function SettingsPanel({ user }: { user: AdminUser }) {
 
   const LABEL = 'mb-1.5 block font-mono text-[10px] tracking-[0.22em] text-white/45 uppercase';
   const INPUT = 'w-full rounded-lg border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm text-white outline-none transition-colors focus:border-neon-cyan/60 placeholder:text-white/25';
+  const [secao, setSecao] = useState<'conta' | 'equipe' | 'site'>('conta');
+  const SUB: { k: typeof secao; label: string }[] = [
+    { k: 'conta', label: 'Conta' },
+    { k: 'equipe', label: 'Equipe' },
+    { k: 'site', label: 'Conteúdo do site' },
+  ];
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="glass-panel rounded-2xl p-6">
-        <h3 className="mb-1 font-display text-lg font-bold text-white">Sua conta</h3>
-        <p className="mb-4 font-mono text-[11px] text-white/40">{user.email}</p>
-        <label className={LABEL}>Nome de exibição</label>
-        <div className="flex flex-wrap gap-2">
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" className={`${INPUT} flex-1`} />
-          <button onClick={saveName} className="pill-button !px-5 !py-2 text-[11px] !border-neon-cyan/50">Salvar</button>
-        </div>
-        {nameMsg && <p className="mt-2 font-mono text-[11px] text-neon-acid">{nameMsg}</p>}
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="flex shrink-0 gap-1.5">
+        {SUB.map((s) => (
+          <button key={s.k} onClick={() => setSecao(s.k)} className={`rounded-full px-4 py-1.5 font-mono text-[10px] tracking-[0.18em] uppercase transition-colors ${secao === s.k ? 'bg-white/12 text-white' : 'text-white/45 hover:text-white/80'}`}>{s.label}</button>
+        ))}
       </div>
 
-      <div className="glass-panel rounded-2xl p-6">
-        <h3 className="mb-4 font-display text-lg font-bold text-white">Trocar senha</h3>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label className={LABEL}>Senha atual</label>
-            <input type="password" value={curPwd} onChange={(e) => setCurPwd(e.target.value)} className={INPUT} />
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {secao === 'conta' && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="glass-panel rounded-2xl p-5">
+              <h3 className="mb-1 font-display text-lg font-bold text-white">Sua conta</h3>
+              <p className="mb-3 font-mono text-[11px] text-white/40">{user.email}</p>
+              <label className={LABEL}>Nome de exibição</label>
+              <div className="flex flex-wrap gap-2">
+                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" className={`${INPUT} flex-1`} />
+                <button onClick={saveName} className="pill-button !px-5 !py-2 text-[11px] !border-neon-cyan/50">Salvar</button>
+              </div>
+              {nameMsg && <p className="mt-2 font-mono text-[11px] text-neon-acid">{nameMsg}</p>}
+              <label className="mt-4 flex items-center gap-3">
+                <input type="checkbox" checked={keep} onChange={(e) => toggleKeep(e.target.checked)} className="h-4 w-4 accent-neon-cyan" />
+                <span className="text-sm text-white/75">Manter-me conectado neste dispositivo</span>
+              </label>
+            </div>
+            <div className="glass-panel rounded-2xl p-5">
+              <h3 className="mb-4 font-display text-lg font-bold text-white">Trocar senha</h3>
+              <div className="grid gap-3">
+                <div><label className={LABEL}>Senha atual</label><input type="password" value={curPwd} onChange={(e) => setCurPwd(e.target.value)} className={INPUT} /></div>
+                <div><label className={LABEL}>Nova senha</label><input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} className={INPUT} /></div>
+              </div>
+              <button onClick={savePwd} className="pill-button mt-4 !px-5 !py-2 text-[11px] !border-neon-cyan/50">Alterar senha</button>
+              {pwdMsg && <p className="mt-2 font-mono text-[11px] text-neon-acid">{pwdMsg}</p>}
+            </div>
           </div>
-          <div>
-            <label className={LABEL}>Nova senha</label>
-            <input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} className={INPUT} />
+        )}
+
+        {secao === 'equipe' && (
+          <div className="flex h-full min-h-0 flex-col">
+            <p className="mb-2 shrink-0 font-mono text-[11px] text-white/40">Cadastro dos donos do CRM. O login de cada um é criado no Firebase Authentication.</p>
+            <div className="min-h-0 flex-1"><EntityManager schema={SCHEMAS.usuarios} store={STORE_BY_MODULE.usuarios!} /></div>
           </div>
-        </div>
-        <button onClick={savePwd} className="pill-button mt-4 !px-5 !py-2 text-[11px] !border-neon-cyan/50">Alterar senha</button>
-        {pwdMsg && <p className="mt-2 font-mono text-[11px] text-neon-acid">{pwdMsg}</p>}
-      </div>
+        )}
 
-      <div className="glass-panel rounded-2xl p-6">
-        <h3 className="mb-1 font-display text-lg font-bold text-white">Sessão</h3>
-        <label className="mt-3 flex items-center gap-3">
-          <input type="checkbox" checked={keep} onChange={(e) => toggleKeep(e.target.checked)} className="h-4 w-4 accent-neon-cyan" />
-          <span className="text-sm text-white/75">Manter-me conectado neste dispositivo</span>
-        </label>
-        <p className="mt-2 font-mono text-[11px] text-white/40">Ligado: você continua logado mesmo fechando o navegador. Desligue em computadores compartilhados.</p>
-      </div>
-
-      <div className="glass-panel rounded-2xl p-6">
-        <h3 className="mb-1 font-display text-lg font-bold text-white">Donos / equipe</h3>
-        <p className="mb-4 font-mono text-[11px] text-white/40">Cadastro dos donos do CRM. O login de acesso de cada um é criado no Firebase Authentication.</p>
-        <EntityManager schema={SCHEMAS.usuarios} store={STORE_BY_MODULE.usuarios!} />
-      </div>
-
-      {/* Conteúdo do site (antiga aba "Conteúdo", agora dentro de Configurações) */}
-      <div className="glass-panel rounded-2xl p-6">
-        <h3 className="mb-1 font-display text-lg font-bold text-white">Conteúdo do site</h3>
-        <p className="mb-4 font-mono text-[11px] text-white/40">Edite todos os textos do site público (hero, serviços, seções, cards 3D e rodapé). As mudanças publicam ao vivo.</p>
-        <ContentPanel readOnly={false} />
+        {secao === 'site' && <ContentPanel readOnly={false} />}
       </div>
     </div>
   );

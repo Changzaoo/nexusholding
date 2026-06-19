@@ -64,7 +64,8 @@ export function ContentPanel({ readOnly = false }: { readOnly?: boolean }) {
   };
 
   return (
-    <div className="flex flex-col gap-5 pb-24">
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="crm-scroll flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto pb-2 pr-1">
       <p className="font-mono text-[11px] leading-relaxed text-white/45">
         Edite qualquer texto do site. As mudanças aparecem ao vivo e ficam salvas
         (localmente e na nuvem, quando configurada). A geometria/posição dos cards 3D
@@ -147,17 +148,16 @@ export function ContentPanel({ readOnly = false }: { readOnly?: boolean }) {
         </Grid>
       </Section>
 
-      {/* ---------------------------------------- barra de ações fixa */}
+      </div>{/* fim da área rolável do editor */}
+
       {!readOnly && (
-        <div className="fixed inset-x-0 bottom-0 z-[55] border-t border-white/10 bg-void/85 backdrop-blur-md">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3.5 md:px-8">
-            <span className="font-mono text-[11px] text-white/45">
-              {flash === 'saved' ? <span className="text-neon-acid">✓ Conteúdo salvo e publicado</span> : dirty ? 'Alterações não salvas' : 'Tudo salvo'}
-            </span>
-            <div className="flex gap-2">
-              <button onClick={restaurar} className="rounded-full border border-white/15 px-4 py-2 font-mono text-[10px] tracking-[0.2em] text-white/55 uppercase hover:text-white">Restaurar padrão</button>
-              <button onClick={salvar} disabled={!dirty} className="pill-button disabled:cursor-not-allowed disabled:opacity-40">Salvar alterações</button>
-            </div>
+        <div className="flex shrink-0 items-center justify-between gap-4 border-t border-white/10 pt-3">
+          <span className="font-mono text-[11px] text-white/45">
+            {flash === 'saved' ? <span className="text-neon-acid">✓ Conteúdo salvo e publicado</span> : dirty ? 'Alterações não salvas' : 'Tudo salvo'}
+          </span>
+          <div className="flex gap-2">
+            <button onClick={restaurar} className="rounded-full border border-white/15 px-4 py-2 font-mono text-[10px] tracking-[0.2em] text-white/55 uppercase hover:text-white">Restaurar padrão</button>
+            <button onClick={salvar} disabled={!dirty} className="pill-button disabled:cursor-not-allowed disabled:opacity-40">Salvar alterações</button>
           </div>
         </div>
       )}
