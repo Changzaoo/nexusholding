@@ -148,9 +148,10 @@ export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
         </div>
       </aside>
 
-      {/* MAIN */}
-      <main className="relative z-10 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-5xl px-5 py-8 md:px-8">
+      {/* MAIN — painel fixo: a página não rola; o conteúdo de cada aba
+          ocupa a altura disponível e as listas rolam dentro do próprio card. */}
+      <main className="relative z-10 flex-1 overflow-hidden">
+        <div className="mx-auto flex h-full max-w-5xl flex-col px-5 py-5 md:px-8 md:py-6">
           {/* topo mobile: marca + sair + nav horizontal */}
           <div className="mb-4 flex items-center justify-between md:hidden">
             <div className="font-display text-xl font-bold tracking-wide text-white uppercase">CRM Nexus</div>
@@ -160,8 +161,8 @@ export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
             {tabs.map(navItem)}
           </nav>
 
-          <div className="mb-6 flex items-center justify-between gap-3">
-            <h1 className="font-display text-3xl font-bold tracking-wide text-white">{MODULE_LABEL[tab]}</h1>
+          <div className="mb-4 flex shrink-0 items-center justify-between gap-3">
+            <h1 className="font-display text-2xl font-bold tracking-wide text-white md:text-3xl">{MODULE_LABEL[tab]}</h1>
             <div className="flex shrink-0 items-center gap-2">
               <NotificationBell onNavigate={(m) => setTab(m)} />
               <button
@@ -176,25 +177,31 @@ export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
             </div>
           </div>
 
-          {tab === 'visaogeral' && (
-            <div className="flex flex-col gap-8">
-              <OverviewPanel onGo={(m) => setTab(m as ModuleKey)} />
-              <div>
-                <h2 className="mb-4 font-display text-2xl font-bold tracking-wide text-white">Leads</h2>
-                <LeadsPanel author={author} />
+          {/* área de conteúdo: preenche o resto da tela; a rolagem (quando há)
+              acontece AQUI dentro, nunca na página inteira. */}
+          <div className="min-h-0 flex-1 overflow-hidden">
+            {tab === 'visaogeral' && (
+              <div className="crm-scroll h-full overflow-y-auto pr-1">
+                <div className="flex flex-col gap-8">
+                  <OverviewPanel onGo={(m) => setTab(m as ModuleKey)} />
+                  <div>
+                    <h2 className="mb-4 font-display text-2xl font-bold tracking-wide text-white">Leads</h2>
+                    <LeadsPanel author={author} />
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
-          {tab === 'pipeline' && <PipelinePanel author={author} />}
-          {tab === 'agenda' && <AgendaPanel readOnly={false} />}
-          {tab === 'financeiro' && <FinanceiroPanel readOnly={false} />}
-          {tab === 'historico' && <HistoricoPanel />}
-          {tab === 'marketing' && <MarketingPanel />}
-          {tab === 'campanhas' && <CampanhasPanel />}
-          {tab === 'config' && <SettingsPanel user={user} />}
-          {(['clientes', 'propostas', 'tarefas', 'projetos', 'conteudos'] as ModuleKey[]).includes(tab) && (
-            <EntityManager schema={SCHEMAS[tab]} store={STORE_BY_MODULE[tab]!} />
-          )}
+            )}
+            {tab === 'pipeline' && <div className="crm-scroll h-full overflow-y-auto pr-1"><PipelinePanel author={author} /></div>}
+            {tab === 'agenda' && <div className="crm-scroll h-full overflow-y-auto pr-1"><AgendaPanel readOnly={false} /></div>}
+            {tab === 'financeiro' && <FinanceiroPanel readOnly={false} />}
+            {tab === 'historico' && <div className="crm-scroll h-full overflow-y-auto pr-1"><HistoricoPanel /></div>}
+            {tab === 'marketing' && <div className="crm-scroll h-full overflow-y-auto pr-1"><MarketingPanel /></div>}
+            {tab === 'campanhas' && <div className="crm-scroll h-full overflow-y-auto pr-1"><CampanhasPanel /></div>}
+            {tab === 'config' && <div className="crm-scroll h-full overflow-y-auto pr-1"><SettingsPanel user={user} /></div>}
+            {(['clientes', 'propostas', 'tarefas', 'projetos', 'conteudos'] as ModuleKey[]).includes(tab) && (
+              <EntityManager schema={SCHEMAS[tab]} store={STORE_BY_MODULE[tab]!} />
+            )}
+          </div>
         </div>
       </main>
 

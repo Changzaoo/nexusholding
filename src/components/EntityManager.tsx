@@ -148,13 +148,13 @@ export function EntityManager<T extends BaseRecord>({ schema, store, readOnly = 
     );
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex h-full flex-col gap-4">
       {hasRef && (
         <datalist id="crm-contacts">
           {contacts.map((c) => <option key={c} value={c} />)}
         </datalist>
       )}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex shrink-0 flex-wrap items-center gap-3">
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`Buscar em ${schema.title.toLowerCase()}…`} className="min-w-[200px] flex-1 rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none focus:border-neon-cyan/60 placeholder:text-white/25" />
         <span className="font-mono text-[11px] text-white/40">{items.length} registro(s)</span>
         <button onClick={exportNow} className="rounded-full border border-white/15 px-4 py-2 font-mono text-[10px] tracking-[0.2em] text-white/60 uppercase transition-colors hover:text-neon-cyan">↓ CSV</button>
@@ -166,15 +166,17 @@ export function EntityManager<T extends BaseRecord>({ schema, store, readOnly = 
       </div>
 
       {adding && !readOnly && (
-        <RecordForm
-          schema={schema}
-          initial={emptyValues(schema.fields)}
-          onCancel={() => setAdding(false)}
-          onSave={(v) => { store.create(v as any); setAdding(false); }}
-        />
+        <div className="shrink-0">
+          <RecordForm
+            schema={schema}
+            initial={emptyValues(schema.fields)}
+            onCancel={() => setAdding(false)}
+            onSave={(v) => { store.create(v as any); setAdding(false); }}
+          />
+        </div>
       )}
 
-      <div className="flex flex-col gap-2.5">
+      <div className="crm-scroll flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-1">
         {filtered.length === 0 && (
           <div className="glass-panel rounded-2xl p-8 text-center font-mono text-xs text-white/40">
             Nenhum registro. {readOnly ? '' : `Clique em “+ Novo ${schema.singular}”.`}

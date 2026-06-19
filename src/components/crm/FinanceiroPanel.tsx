@@ -140,9 +140,9 @@ export function FinanceiroPanel({ readOnly = false }: { readOnly?: boolean }) {
   );
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex h-full flex-col gap-4">
       {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid shrink-0 grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           { label: `Receita · ${monthLabel(mes)}`, value: moeda(recebidoMes), color: '#22c55e' },
           { label: `Custos · ${monthLabel(mes)}`, value: moeda(custosMes), color: '#ff5d73' },
@@ -157,7 +157,7 @@ export function FinanceiroPanel({ readOnly = false }: { readOnly?: boolean }) {
       </div>
 
       {/* Previsão de entrada — quanto dinheiro ainda tem para entrar */}
-      <div className="glass-panel rounded-2xl p-5">
+      <div className="glass-panel shrink-0 rounded-2xl p-5">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-mono text-[11px] tracking-[0.25em] text-neon-cyan uppercase">Previsão de entrada</h3>
           <span className="font-display text-lg font-bold text-neon-acid">{moeda(previsto)}</span>
@@ -169,13 +169,16 @@ export function FinanceiroPanel({ readOnly = false }: { readOnly?: boolean }) {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div className="flex gap-1.5">{TAB('resumo', 'DRE & Fluxo')}{TAB('parcelas', 'Receitas')}{TAB('custos', 'Custos')}</div>
         <label className="flex items-center gap-2 font-mono text-[10px] tracking-[0.18em] text-white/45 uppercase">
           Mês
           <input type="month" value={mes} onChange={(e) => setMes(e.target.value)} className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white outline-none" />
         </label>
       </div>
+
+      {/* área rolável da visão ativa (a página em si não rola) */}
+      <div className="crm-scroll flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
 
       {/* ============================== RESUMO: DRE + Fluxo + Projetos */}
       {view === 'resumo' && (
@@ -329,6 +332,8 @@ export function FinanceiroPanel({ readOnly = false }: { readOnly?: boolean }) {
           )}
         </div>
       )}
+
+      </div>{/* fim da área rolável */}
 
       {/* modal parcela */}
       {pModal && (
