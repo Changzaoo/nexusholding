@@ -89,7 +89,7 @@ export function OverviewPanel({ onGo }: { onGo?: (mod: string) => void }) {
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+      <div className="hidden gap-4 md:grid lg:grid-cols-[1.4fr_1fr]">
         {/* funil comercial */}
         <div className="glass-panel rounded-2xl p-4">
           <h3 className="mb-3 font-mono text-[11px] tracking-[0.3em] text-white/55 uppercase">Funil comercial</h3>

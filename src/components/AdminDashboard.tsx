@@ -26,6 +26,7 @@ import { NotificationBell } from './NotificationBell';
 import { Tour } from './Tour';
 import { AutoPaged } from './AutoPaged';
 import { syncMidia } from '../lib/midiaSync';
+import { useIsNarrow } from '../hooks/useIsNarrow';
 import { globalTour, tabTours, hasSeenTour, markTourSeen, type TourStep } from '../lib/tutorial';
 import type { AdminUser } from '../types/admin';
 
@@ -151,7 +152,7 @@ export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
       {/* MAIN — painel fixo: a página não rola; o conteúdo de cada aba
           ocupa a altura disponível e as listas rolam dentro do próprio card. */}
       <main className="relative z-10 flex-1 overflow-hidden">
-        <div className="mx-auto flex h-full max-w-5xl flex-col px-5 py-5 md:px-8 md:py-6">
+        <div className="flex h-full w-full flex-col px-4 py-4 md:px-6 md:py-5 xl:px-8">
           {/* topo mobile: marca + sair + nav horizontal */}
           <div className="mb-4 flex items-center justify-between md:hidden">
             <div className="font-display text-xl font-bold tracking-wide text-white uppercase">CRM Nexus</div>
@@ -218,6 +219,8 @@ function PipelinePanel({ author }: { author: string }) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [sel, setSel] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<LeadStatus | null>(null);
+  const [selStage, setSelStage] = useState<LeadStatus>('novo');
+  const narrow = useIsNarrow(900); // kanban completo só quando cabe (>= 900px)
   useEffect(() => subscribeLeads(setLeads), []);
 
   const open = leads.filter((l) => l.status !== 'fechado' && l.status !== 'perdido').length;
@@ -262,10 +265,43 @@ function PipelinePanel({ author }: { author: string }) {
       </div>
 
       <div className="flex shrink-0 items-center justify-between">
-        <span className="font-mono text-[10px] tracking-[0.2em] text-white/35 uppercase">Arraste os cards entre os estágios</span>
+        <span className="font-mono text-[10px] tracking-[0.2em] text-white/35 uppercase">{narrow ? 'Toque num estágio para filtrar' : 'Arraste os cards entre os estágios'}</span>
         <button onClick={() => exportLeads(leads)} className={CSV_BTN}>↓ CSV</button>
       </div>
 
+      {/* MOBILE: seletor de estágio + lista do estágio (sem kanban apertado) */}
+      {narrow ? (
+        <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <div className="flex shrink-0 flex-wrap gap-1.5">
+            {PIPELINE.map((s) => {
+              const n = leads.filter((l) => l.status === s.value).length;
+              return <Chip key={s.value} active={selStage === s.value} onClick={() => setSelStage(s.value)} label={`${s.label} (${n})`} color={s.color} />;
+            })}
+          </div>
+          <div className="min-h-0 flex-1">
+            <AutoPaged
+              items={leads.filter((l) => l.status === selStage)}
+              rowPx={64}
+              colMinPx={320}
+              empty={<div className="glass-panel flex h-full items-center justify-center rounded-2xl p-8 text-center font-mono text-xs text-white/40">Nenhum lead neste estágio.</div>}
+              render={(l) => {
+                const m = stageMeta(l.status);
+                return (
+                  <button key={l.id} onClick={() => setSel(l.id)} className="glass-panel rounded-xl p-3.5 text-left transition-colors hover:bg-white/5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate font-medium text-white">{l.name || l.email || '—'}</div>
+                        {l.company && <div className="truncate font-mono text-[10px] text-white/45">{l.company}</div>}
+                      </div>
+                      <span className="shrink-0 rounded-full px-2.5 py-1 font-mono text-[9px] tracking-[0.18em] uppercase" style={{ color: m.color, background: `${m.color}1f`, border: `1px solid ${m.color}55` }}>{m.label}</span>
+                    </div>
+                  </button>
+                );
+              }}
+            />
+          </div>
+        </div>
+      ) : (
       <div ref={colsRef} className="flex min-h-0 flex-1 gap-2">
         {PIPELINE.map((stage) => {
           const col = leads.filter((l) => l.status === stage.value);
@@ -311,6 +347,7 @@ function PipelinePanel({ author }: { author: string }) {
           );
         })}
       </div>
+      )}
 
       {current && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && setSel(null)}>
