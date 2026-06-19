@@ -60,12 +60,14 @@ export type ModuleKey =
   | 'pipeline'
   | 'leads'
   | 'clientes'
+  | 'projetos'
   | 'empresas'
   | 'propostas'
   | 'agenda'
   | 'financeiro'
   | 'tarefas'
   | 'campanhas'
+  | 'conteudos'
   | 'usuarios'
   | 'historico'
   | 'conteudo'
@@ -77,22 +79,24 @@ export const MODULE_LABEL: Record<ModuleKey, string> = {
   pipeline: 'Pipeline',
   leads: 'Leads',
   clientes: 'Clientes',
+  projetos: 'Projetos',
   empresas: 'Empresas',
   propostas: 'Propostas',
   agenda: 'Agenda',
   financeiro: 'Financeiro',
   tarefas: 'Tarefas',
   campanhas: 'Campanhas',
+  conteudos: 'Conteúdo',
   usuarios: 'Usuários',
   historico: 'Histórico',
-  conteudo: 'Conteúdo',
+  conteudo: 'Conteúdo do site',
   marketing: 'Marketing',
   config: 'Configurações',
 };
 
 /** Matriz de permissões: quais módulos cada papel acessa. */
 export const ROLE_PERMISSIONS: Record<Role, ModuleKey[]> = {
-  admin: ['visaogeral', 'pipeline', 'leads', 'clientes', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'marketing', 'historico', 'conteudo', 'config'],
+  admin: ['visaogeral', 'pipeline', 'leads', 'clientes', 'projetos', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'conteudos', 'marketing', 'historico', 'conteudo', 'config'],
 };
 
 export function can(role: Role, mod: ModuleKey): boolean {
@@ -172,12 +176,63 @@ export interface Tarefa extends BaseRecord {
   notes?: string;
 }
 
+export type CampanhaCanal = 'google' | 'meta' | 'tiktok' | 'email' | 'organico' | 'outro';
 export interface Campanha extends BaseRecord {
   name: string;
-  channel: 'google' | 'meta' | 'email' | 'organico' | 'outro';
+  channel: CampanhaCanal;
   budget: number;
   status: 'ativa' | 'pausada' | 'encerrada';
-  leads?: number;
+  client?: string; // cliente/projeto atendido
+  project?: string;
+  startDate?: string;
+  endDate?: string;
+  /* ---- captação / performance (Google Ads, Meta Ads, etc.) ---- */
+  spend?: number; // investimento realizado
+  impressions?: number; // impressões
+  clicks?: number; // cliques
+  leads?: number; // leads captados
+  sales?: number; // vendas/conversões
+  revenue?: number; // receita gerada
+  notes?: string;
+}
+
+/** Projeto: a espinha dorsal que liga cliente, campanha, financeiro e conteúdo. */
+export type ProjetoStatus = 'ativo' | 'pausado' | 'concluido' | 'cancelado';
+export interface Projeto extends BaseRecord {
+  name: string;
+  client: string; // ref a cliente/lead
+  status: ProjetoStatus;
+  startDate?: string;
+  endDate?: string;
+  contractValue?: number; // valor do contrato/fechamento
+  scope?: string; // escopo / serviços contratados
+  midiaId?: string; // vínculo com a implantação na fábrica de mídia
+  owner?: string;
+  notes?: string;
+}
+
+/** Custo / despesa lançada (opcionalmente) num projeto — base da margem e do DRE. */
+export type CustoCategoria = 'trafego' | 'ferramenta' | 'equipe' | 'terceiros' | 'imposto' | 'outro';
+export interface Custo extends BaseRecord {
+  description: string;
+  project?: string; // projeto/cliente
+  category: CustoCategoria;
+  value: number;
+  date: string; // ISO yyyy-mm-dd
+  recurring?: boolean; // recorrente (mensal)
+}
+
+/** Conteúdo produzido para um cliente (calendário editorial / criativos). */
+export type ConteudoStatus = 'ideia' | 'producao' | 'aprovacao' | 'agendado' | 'publicado';
+export interface ConteudoCliente extends BaseRecord {
+  title: string;
+  client: string; // ref
+  type: 'post' | 'reel' | 'story' | 'criativo' | 'video' | 'artigo' | 'email';
+  channel: 'instagram' | 'facebook' | 'google' | 'tiktok' | 'youtube' | 'blog' | 'email' | 'outro';
+  status: ConteudoStatus;
+  date?: string; // publicação/agendamento
+  link?: string;
+  notes?: string;
 }
 
 export interface Usuario extends BaseRecord {
@@ -350,6 +405,9 @@ export const usuariosStore = createStore<Usuario>('usuarios');
 export const historicoStore = createStore<Historico>('historico');
 export const agendaStore = createStore<Evento>('agenda');
 export const financeiroStore = createStore<Parcela>('financeiro');
+export const projetosStore = createStore<Projeto>('projetos');
+export const custosStore = createStore<Custo>('custos');
+export const conteudosStore = createStore<ConteudoCliente>('conteudos');
 
 /** registra um evento no histórico de atendimento. */
 export function logHistorico(
@@ -511,6 +569,85 @@ export const SCHEMAS: Record<string, EntitySchema> = {
       { key: 'leads', label: 'Leads gerados', type: 'number' },
     ],
   },
+  projetos: {
+    module: 'projetos',
+    title: 'Projetos',
+    singular: 'Projeto',
+    fields: [
+      { key: 'name', label: 'Projeto', type: 'text', required: true },
+      { key: 'client', label: 'Cliente', type: 'ref', required: true },
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: [
+          { value: 'ativo', label: 'Ativo', color: '#22c55e' },
+          { value: 'pausado', label: 'Pausado', color: '#ffd166' },
+          { value: 'concluido', label: 'Concluído', color: '#41e8ff' },
+          { value: 'cancelado', label: 'Cancelado', color: '#ff5d73' },
+        ],
+      },
+      { key: 'contractValue', label: 'Valor do contrato (R$)', type: 'number' },
+      { key: 'startDate', label: 'Início', type: 'date' },
+      { key: 'endDate', label: 'Fim previsto', type: 'date' },
+      { key: 'scope', label: 'Escopo / serviços', type: 'textarea' },
+      { key: 'owner', label: 'Responsável', type: 'text' },
+      { key: 'notes', label: 'Observações', type: 'textarea' },
+    ],
+  },
+  conteudos: {
+    module: 'conteudos',
+    title: 'Conteúdo',
+    singular: 'Conteúdo',
+    fields: [
+      { key: 'title', label: 'Título', type: 'text', required: true },
+      { key: 'client', label: 'Cliente', type: 'ref', required: true },
+      {
+        key: 'type',
+        label: 'Tipo',
+        type: 'select',
+        options: [
+          { value: 'post', label: 'Post' },
+          { value: 'reel', label: 'Reel' },
+          { value: 'story', label: 'Story' },
+          { value: 'criativo', label: 'Criativo (anúncio)' },
+          { value: 'video', label: 'Vídeo' },
+          { value: 'artigo', label: 'Artigo / Blog' },
+          { value: 'email', label: 'E-mail' },
+        ],
+      },
+      {
+        key: 'channel',
+        label: 'Canal',
+        type: 'select',
+        options: [
+          { value: 'instagram', label: 'Instagram' },
+          { value: 'facebook', label: 'Facebook' },
+          { value: 'google', label: 'Google' },
+          { value: 'tiktok', label: 'TikTok' },
+          { value: 'youtube', label: 'YouTube' },
+          { value: 'blog', label: 'Blog' },
+          { value: 'email', label: 'E-mail' },
+          { value: 'outro', label: 'Outro' },
+        ],
+      },
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: [
+          { value: 'ideia', label: 'Ideia', color: '#8fa3c8' },
+          { value: 'producao', label: 'Em produção', color: '#ffd166' },
+          { value: 'aprovacao', label: 'Aprovação', color: '#41e8ff' },
+          { value: 'agendado', label: 'Agendado', color: '#8b5cf6' },
+          { value: 'publicado', label: 'Publicado', color: '#22c55e' },
+        ],
+      },
+      { key: 'date', label: 'Data', type: 'date' },
+      { key: 'link', label: 'Link', type: 'text' },
+      { key: 'notes', label: 'Observações', type: 'textarea' },
+    ],
+  },
   usuarios: {
     module: 'usuarios',
     title: 'Usuários',
@@ -535,5 +672,7 @@ export const STORE_BY_MODULE: Partial<Record<ModuleKey, Store<any>>> = {
   propostas: propostasStore,
   tarefas: tarefasStore,
   campanhas: campanhasStore,
+  projetos: projetosStore,
+  conteudos: conteudosStore,
   usuarios: usuariosStore,
 };

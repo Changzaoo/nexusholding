@@ -23,6 +23,7 @@ import { AgendaPanel } from './crm/AgendaPanel';
 import { FinanceiroPanel } from './crm/FinanceiroPanel';
 import { ContentPanel } from './crm/ContentPanel';
 import { MarketingPanel } from './crm/MarketingPanel';
+import { CampanhasPanel } from './crm/CampanhasPanel';
 import { syncMidia } from '../lib/midiaSync';
 import type { AdminUser } from '../types/admin';
 
@@ -63,7 +64,7 @@ function exportLeads(leads: Lead[]) {
 const CSV_BTN = 'rounded-full border border-white/15 px-4 py-2 font-mono text-[10px] tracking-[0.2em] text-white/60 uppercase transition-colors hover:text-neon-cyan';
 
 // "conteudo" saiu da navegação — agora vive dentro de "Configurações".
-const MODULE_ORDER: ModuleKey[] = ['visaogeral', 'pipeline', 'leads', 'clientes', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'marketing', 'historico', 'config'];
+const MODULE_ORDER: ModuleKey[] = ['visaogeral', 'pipeline', 'leads', 'clientes', 'projetos', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'conteudos', 'marketing', 'historico', 'config'];
 
 export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
   // Equipe enxuta: papel único "Dono" com acesso total.
@@ -137,8 +138,9 @@ export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
           {tab === 'financeiro' && <FinanceiroPanel readOnly={false} />}
           {tab === 'historico' && <HistoricoPanel />}
           {tab === 'marketing' && <MarketingPanel />}
+          {tab === 'campanhas' && <CampanhasPanel />}
           {tab === 'config' && <SettingsPanel user={user} />}
-          {(['clientes', 'propostas', 'tarefas', 'campanhas'] as ModuleKey[]).includes(tab) && (
+          {(['clientes', 'propostas', 'tarefas', 'projetos', 'conteudos'] as ModuleKey[]).includes(tab) && (
             <EntityManager schema={SCHEMAS[tab]} store={STORE_BY_MODULE[tab]!} />
           )}
         </div>
