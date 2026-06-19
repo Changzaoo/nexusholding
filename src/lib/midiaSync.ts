@@ -1,0 +1,160 @@
+/**
+ * ============================================================
+ *  Sincronização CRM Nexus  <->  Fábrica de Mídia (Nexus Digital 90)
+ * ------------------------------------------------------------
+ *  O CRM é o único lado com acesso aos dois mundos (Firestore +
+ *  Nexus Bridge), então ele orquestra a sincronização NOS DOIS
+ *  SENTIDOS, pela Bridge:
+ *
+ *   • Mídia -> CRM : puxa os clientes da fábrica e cria/atualiza
+ *                    em `clientes` do CRM (casando por crmId/midiaId).
+ *   • CRM  -> Mídia: empurra clientes do CRM que ainda não existem
+ *                    na fábrica (POST client, vinculando o crmId).
+ *
+ *  É idempotente: rodar várias vezes não duplica. A ligação é o par
+ *  (Cliente.midiaId no CRM) <-> (briefing.crmId na fábrica), e
+ *  converge — um cliente empurrado do CRM volta no próximo pull já
+ *  com crmId, e aí ganha o midiaId.
+ * ============================================================
+ */
+import {
+  clientesStore,
+  type Cliente,
+} from './crm';
+import {
+  listDashClients,
+  upsertDashClient,
+  getDashClient,
+  type DashClient,
+} from './nexusBridge';
+
+/** Lê o estado atual de uma coleção uma única vez (subscribe + unsubscribe). */
+function readOnce(): Promise<Cliente[]> {
+  return new Promise((resolve) => {
+    let unsub: (() => void) | null = null;
+    let done = false;
+    const finish = (items: Cliente[]) => {
+      if (done) return;
+      done = true;
+      // o unsub pode ainda não ter sido atribuído (emissão síncrona): adia.
+      queueMicrotask(() => unsub?.());
+      resolve(items);
+    };
+    unsub = clientesStore.subscribe(finish);
+  });
+}
+
+/** Transforma um slug ("marcenaria-silva") num nome legível ("Marcenaria Silva"). */
+function prettify(slug: string): string {
+  return slug.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).trim();
+}
+
+/** Métricas/contadores da Mídia projetados nos campos do Cliente. */
+function midiaSnapshot(d: DashClient): Partial<Cliente> {
+  return {
+    midiaId: d.id,
+    midiaEtapas: d.etapasConcluidas,
+    midiaMateriais: d.materiais,
+    midiaAguardando: d.aguardandoAprovacao,
+    midiaReceita: d.metrics?.receita,
+    midiaRoas: d.metrics?.roas,
+    midiaSyncedAt: Date.now(),
+  };
+}
+
+export interface SyncResult {
+  pulledCriados: number; // clientes da Mídia criados no CRM
+  pulledAtualizados: number; // clientes vinculados/atualizados no CRM
+  pushed: number; // clientes do CRM enviados para a Mídia
+  total: number; // total de clientes na Mídia após o sync
+  error?: string;
+}
+
+/**
+ * Executa a sincronização bidirecional completa.
+ * Seguro chamar de tempos em tempos / em todo carregamento.
+ */
+export async function syncMidia(): Promise<SyncResult> {
+  const res: SyncResult = { pulledCriados: 0, pulledAtualizados: 0, pushed: 0, total: 0 };
+  try {
+    const [dash, crm] = await Promise.all([listDashClients(), readOnce()]);
+    res.total = dash.length;
+
+    // índices para casar os dois lados
+    const crmById = new Map(crm.map((c) => [c.id, c]));
+    const crmByMidia = new Map(crm.filter((c) => c.midiaId).map((c) => [c.midiaId as string, c]));
+    const midiaLinkedCrmIds = new Set(dash.map((d) => (d.crmId || '').trim()).filter(Boolean));
+    const midiaSlugs = new Set(dash.map((d) => d.id));
+
+    /* ---------- Mídia -> CRM ---------- */
+    for (const d of dash) {
+      const snap = midiaSnapshot(d);
+      // 1) já vinculado por midiaId
+      const byMidia = crmByMidia.get(d.id);
+      if (byMidia) {
+        await clientesStore.update(byMidia.id, snap);
+        res.pulledAtualizados++;
+        continue;
+      }
+      // 2) a Mídia aponta para um cliente do CRM (crmId) ainda sem midiaId
+      const linked = d.crmId ? crmById.get(d.crmId.trim()) : undefined;
+      if (linked) {
+        await clientesStore.update(linked.id, {
+          ...snap,
+          segment: linked.segment || d.nicho || undefined,
+          city: linked.city || d.cidade || undefined,
+        });
+        res.pulledAtualizados++;
+        continue;
+      }
+      // 3) cliente que só existe na Mídia -> cria no CRM
+      await clientesStore.create({
+        name: prettify(d.id),
+        segment: d.nicho || undefined,
+        city: d.cidade || undefined,
+        origin: 'midia',
+        ...snap,
+      } as Omit<Cliente, 'id' | 'createdAt'>);
+      res.pulledCriados++;
+    }
+
+    /* ---------- CRM -> Mídia ---------- */
+    for (const c of crm) {
+      const jaNaMidia = (c.midiaId && midiaSlugs.has(c.midiaId)) || midiaLinkedCrmIds.has(c.id);
+      if (jaNaMidia || !c.name?.trim()) continue;
+      await upsertDashClient({
+        nome: c.name,
+        crmId: c.id,
+        brief: { nicho: c.segment, cidade: c.city },
+      });
+      res.pushed++;
+    }
+  } catch (e: any) {
+    res.error = e?.message || String(e);
+  }
+  return res;
+}
+
+/** Entregáveis (pastas/arquivos) gerados na Mídia para um cliente. */
+export interface Entregavel {
+  folder: string;
+  file: string;
+}
+export async function listEntregaveis(midiaId: string): Promise<Entregavel[]> {
+  const r = (await getDashClient(midiaId)) as { materiais?: Entregavel[] };
+  return (r.materiais || []).filter((m) => m.file);
+}
+
+/** Rótulo amigável das pastas/etapas da fábrica. */
+export const FOLDER_LABEL: Record<string, string> = {
+  '00-diagnostico': 'Diagnóstico (Raio-X)',
+  '01-proposta': 'Proposta',
+  '02-presenca-digital': 'Presença digital',
+  '03-conteudo': 'Conteúdo',
+  '04-artes': 'Artes / Assets',
+  '05-atendimento': 'Atendimento / CRM',
+  '06-treinamento': 'Treinamento',
+  '07-campanha': 'Campanha',
+  '_aguardando-board': 'Aguardando aprovação',
+  '(raiz)': 'Geral',
+};

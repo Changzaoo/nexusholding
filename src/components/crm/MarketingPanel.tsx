@@ -1,122 +1,164 @@
 import { useEffect, useState } from 'react';
-import { listDashClients, upsertDashClient, type DashClient } from '../../lib/nexusBridge';
-import { clientesStore, empresasStore, type Cliente, type Empresa } from '../../lib/crm';
+import { clientesStore, type Cliente } from '../../lib/crm';
+import { syncMidia, listEntregaveis, FOLDER_LABEL, type SyncResult, type Entregavel } from '../../lib/midiaSync';
 
 const moeda = (v: number) =>
   (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 
 export function MarketingPanel() {
-  const [clients, setClients] = useState<DashClient[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [crmClientes, setCrmClientes] = useState<Cliente[]>([]);
-  const [crmEmpresas, setCrmEmpresas] = useState<Empresa[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [syncing, setSyncing] = useState(false);
+  const [result, setResult] = useState<SyncResult | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [entregaveis, setEntregaveis] = useState<Record<string, Entregavel[]>>({});
+  const [loadingEnt, setLoadingEnt] = useState<string | null>(null);
 
-  const load = () => {
-    setLoading(true);
-    listDashClients()
-      .then((c) => { setClients(c); setError(null); })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+  useEffect(() => clientesStore.subscribe(setClientes), []);
+
+  const sincronizar = async () => {
+    setSyncing(true);
+    const r = await syncMidia();
+    setResult(r);
+    setSyncing(false);
   };
-  useEffect(() => { load(); }, []);
-  useEffect(() => clientesStore.subscribe(setCrmClientes), []);
-  useEffect(() => empresasStore.subscribe(setCrmEmpresas), []);
+  // sincroniza uma vez ao abrir a aba
+  useEffect(() => { sincronizar(); }, []);
 
-  // entidades do CRM que ainda não têm cliente no painel de marketing
-  const vinculados = new Set(clients.map((c) => (c.crmId || '').trim()).filter(Boolean));
-  const candidatos = [
-    ...crmEmpresas.map((e) => ({ id: e.id, nome: (e as any).nome || (e as any).razaoSocial || '', tipo: 'Empresa', brief: { nicho: (e as any).segmento, cidade: (e as any).cidade } })),
-    ...crmClientes.map((c) => ({ id: c.id, nome: (c as any).nome || '', tipo: 'Cliente', brief: { nicho: (c as any).segmento, cidade: (c as any).cidade } })),
-  ].filter((x) => x.nome && !vinculados.has(x.id));
+  const naMidia = clientes
+    .filter((c) => c.midiaId)
+    .sort((a, b) => (b.midiaSyncedAt || 0) - (a.midiaSyncedAt || 0));
+  const soCrm = clientes.filter((c) => !c.midiaId && c.name?.trim());
 
-  const produzir = async (nome: string, crmId: string, brief: Record<string, unknown>) => {
-    setBusy(crmId);
-    try { await upsertDashClient({ nome, crmId, brief }); load(); }
-    catch (e: any) { setError(e.message); }
-    setBusy(null);
+  const toggle = async (c: Cliente) => {
+    if (!c.midiaId) return;
+    if (expanded === c.id) { setExpanded(null); return; }
+    setExpanded(c.id);
+    if (!entregaveis[c.id]) {
+      setLoadingEnt(c.id);
+      try {
+        const items = await listEntregaveis(c.midiaId);
+        setEntregaveis((m) => ({ ...m, [c.id]: items }));
+      } catch { setEntregaveis((m) => ({ ...m, [c.id]: [] })); }
+      setLoadingEnt(null);
+    }
   };
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-display text-2xl font-bold tracking-wide text-white">Marketing</h2>
-          <p className="mt-1 font-mono text-xs text-white/45">Clientes e materiais do painel de marketing (Nexus Digital 90), conectados ao CRM.</p>
+          <h2 className="font-display text-2xl font-bold tracking-wide text-white">Marketing · Fábrica de Mídia</h2>
+          <p className="mt-1 font-mono text-xs text-white/45">Clientes e entregáveis do Nexus Digital 90, sincronizados nos dois sentidos com o CRM via Nexus Bridge.</p>
         </div>
-        <button onClick={load} className="rounded-full border border-white/15 px-4 py-2 font-mono text-[10px] tracking-[0.2em] text-white/60 uppercase transition-colors hover:text-neon-cyan">↻ Atualizar</button>
+        <button
+          onClick={sincronizar}
+          disabled={syncing}
+          className="rounded-full border border-neon-cyan/40 px-4 py-2 font-mono text-[10px] tracking-[0.2em] text-neon-cyan uppercase transition-colors hover:bg-neon-cyan/10 disabled:opacity-50"
+        >
+          {syncing ? 'Sincronizando…' : '↻ Sincronizar agora'}
+        </button>
       </div>
 
-      {error && (
+      {result?.error && (
         <div className="glass-panel rounded-2xl border border-neon-magenta/30 p-5 text-sm text-neon-magenta/90">
-          Não foi possível conectar ao painel de marketing: {error}
-          <div className="mt-1 font-mono text-[10px] text-white/40">Verifique NEXUS_API / NEXUS_KEY (proxy) ou se o backend está no ar.</div>
+          Não foi possível sincronizar com a Mídia: {result.error}
+          <div className="mt-1 font-mono text-[10px] text-white/40">Verifique a Nexus Bridge (api.nexusholding.xyz) e as chaves de integração.</div>
         </div>
       )}
 
-      {loading ? (
-        <div className="glass-panel rounded-2xl p-10 text-center font-mono text-xs text-white/40">Carregando…</div>
-      ) : (
-        <>
-          {/* clientes já no painel de marketing */}
-          <div>
-            <div className="mb-3 font-mono text-[10px] tracking-[0.25em] text-white/40 uppercase">No painel de marketing ({clients.length})</div>
-            {clients.length === 0 ? (
-              <div className="glass-panel rounded-2xl p-8 text-center font-mono text-xs text-white/35">Nenhum cliente no painel ainda. Use “Produzir marketing” abaixo para criar a partir do CRM.</div>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {clients.map((c) => (
-                  <div key={c.id} className="glass-panel rounded-2xl p-5">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="truncate font-medium capitalize text-white">{c.id.replace(/-/g, ' ')}</div>
-                      {c.aguardandoAprovacao > 0 && <span className="shrink-0 rounded-full bg-neon-acid/15 px-2 py-0.5 font-mono text-[9px] text-neon-acid">{c.aguardandoAprovacao} p/ aprovar</span>}
-                    </div>
-                    <div className="mt-1 font-mono text-[10px] text-white/40">{[c.nicho, c.cidade].filter(Boolean).join(' · ') || '—'}{c.crmId ? ` · CRM #${c.crmId}` : ''}</div>
-                    <div className="mt-3 flex items-end justify-between">
-                      <div>
-                        <div className="font-display text-xl font-bold text-neon-cyan">{c.metrics ? moeda(c.metrics.receita) : '—'}</div>
-                        <div className="font-mono text-[9px] tracking-[0.2em] text-white/35 uppercase">receita proj./mês{c.metrics ? ` · ${c.metrics.roas}x` : ''}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-display text-lg font-bold text-white">{c.materiais}</div>
-                        <div className="font-mono text-[9px] tracking-[0.2em] text-white/35 uppercase">materiais</div>
-                      </div>
-                    </div>
-                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
-                      <div className="h-full rounded-full bg-neon-cyan" style={{ width: `${Math.round((c.etapasConcluidas / 8) * 100)}%` }} />
-                    </div>
-                    <div className="mt-1 font-mono text-[9px] text-white/35">{c.etapasConcluidas}/8 etapas concluídas</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* enviar empresas/clientes do CRM para o marketing */}
-          {candidatos.length > 0 && (
-            <div>
-              <div className="mb-3 font-mono text-[10px] tracking-[0.25em] text-white/40 uppercase">Produzir marketing a partir do CRM</div>
-              <div className="flex flex-col gap-2.5">
-                {candidatos.slice(0, 12).map((x) => (
-                  <div key={x.tipo + x.id} className="glass-panel flex items-center justify-between gap-3 rounded-xl p-4">
-                    <div className="min-w-0">
-                      <div className="truncate font-medium text-white">{x.nome} <span className="font-mono text-[10px] text-white/35">· {x.tipo}</span></div>
-                    </div>
-                    <button
-                      onClick={() => produzir(x.nome, x.id, x.brief as Record<string, unknown>)}
-                      disabled={busy === x.id}
-                      className="shrink-0 rounded-full border border-neon-cyan/40 px-4 py-2 font-mono text-[10px] tracking-[0.2em] text-neon-cyan uppercase transition-colors hover:bg-neon-cyan/10 disabled:opacity-50"
-                    >
-                      {busy === x.id ? '…' : 'Produzir marketing'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
+      {result && !result.error && (
+        <div className="glass-panel rounded-2xl p-4 font-mono text-[11px] text-white/55">
+          Última sincronização: {result.pulledCriados} cliente(s) trazido(s) da Mídia, {result.pulledAtualizados} atualizado(s),
+          {' '}{result.pushed} enviado(s) do CRM para a Mídia · {result.total} no total na fábrica.
+        </div>
       )}
+
+      {/* clientes vinculados à Mídia, com entregáveis */}
+      <div>
+        <div className="mb-3 font-mono text-[10px] tracking-[0.25em] text-white/40 uppercase">Na fábrica de mídia ({naMidia.length})</div>
+        {naMidia.length === 0 ? (
+          <div className="glass-panel rounded-2xl p-8 text-center font-mono text-xs text-white/35">Nenhum cliente sincronizado ainda. Crie clientes no CRM ou na fábrica e clique em “Sincronizar agora”.</div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {naMidia.map((c) => {
+              const etapas = c.midiaEtapas ?? 0;
+              return (
+                <div key={c.id} className="glass-panel rounded-2xl p-5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="truncate font-medium text-white">{c.name}</div>
+                    {(c.midiaAguardando ?? 0) > 0 && <span className="shrink-0 rounded-full bg-neon-acid/15 px-2 py-0.5 font-mono text-[9px] text-neon-acid">{c.midiaAguardando} p/ aprovar</span>}
+                  </div>
+                  <div className="mt-1 font-mono text-[10px] text-white/40">{[c.segment, c.city].filter(Boolean).join(' · ') || '—'}</div>
+                  <div className="mt-3 flex items-end justify-between">
+                    <div>
+                      <div className="font-display text-xl font-bold text-neon-cyan">{c.midiaReceita != null ? moeda(c.midiaReceita) : '—'}</div>
+                      <div className="font-mono text-[9px] tracking-[0.2em] text-white/35 uppercase">receita proj./mês{c.midiaRoas != null ? ` · ${c.midiaRoas}x` : ''}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-display text-lg font-bold text-white">{c.midiaMateriais ?? 0}</div>
+                      <div className="font-mono text-[9px] tracking-[0.2em] text-white/35 uppercase">materiais</div>
+                    </div>
+                  </div>
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+                    <div className="h-full rounded-full bg-neon-cyan" style={{ width: `${Math.round((etapas / 8) * 100)}%` }} />
+                  </div>
+                  <div className="mt-1 font-mono text-[9px] text-white/35">{etapas}/8 etapas concluídas</div>
+
+                  <button onClick={() => toggle(c)} className="mt-3 w-full rounded-lg border border-white/12 px-3 py-1.5 font-mono text-[9px] tracking-[0.2em] text-white/55 uppercase transition-colors hover:text-neon-cyan">
+                    {expanded === c.id ? '▲ ocultar entregáveis' : '▼ ver entregáveis'}
+                  </button>
+
+                  {expanded === c.id && (
+                    <div className="mt-3 border-t border-white/10 pt-3">
+                      {loadingEnt === c.id ? (
+                        <div className="font-mono text-[10px] text-white/35">Carregando entregáveis…</div>
+                      ) : (entregaveis[c.id]?.length ? (
+                        <EntregaveisList items={entregaveis[c.id]} />
+                      ) : (
+                        <div className="font-mono text-[10px] text-white/35">Nenhum material gerado ainda.</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* clientes do CRM que serão enviados à fábrica no próximo sync */}
+      {soCrm.length > 0 && (
+        <div>
+          <div className="mb-2 font-mono text-[10px] tracking-[0.25em] text-white/40 uppercase">Só no CRM — serão enviados à fábrica ({soCrm.length})</div>
+          <div className="flex flex-wrap gap-2">
+            {soCrm.slice(0, 20).map((c) => (
+              <span key={c.id} className="rounded-full border border-white/12 px-3 py-1 font-mono text-[10px] text-white/55">{c.name}</span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Agrupa os entregáveis por pasta/etapa e lista os arquivos. */
+function EntregaveisList({ items }: { items: Entregavel[] }) {
+  const byFolder = items.reduce<Record<string, string[]>>((acc, it) => {
+    (acc[it.folder] ??= []).push(it.file);
+    return acc;
+  }, {});
+  return (
+    <div className="flex flex-col gap-2">
+      {Object.entries(byFolder).map(([folder, files]) => (
+        <div key={folder}>
+          <div className="font-mono text-[9px] tracking-[0.2em] text-neon-violet uppercase">{FOLDER_LABEL[folder] || folder}</div>
+          <ul className="mt-1 flex flex-col gap-0.5">
+            {files.map((f) => (
+              <li key={f} className="truncate font-mono text-[10px] text-white/60">· {f}</li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </div>
   );
 }

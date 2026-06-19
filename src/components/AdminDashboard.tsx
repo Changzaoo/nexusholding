@@ -23,6 +23,7 @@ import { AgendaPanel } from './crm/AgendaPanel';
 import { FinanceiroPanel } from './crm/FinanceiroPanel';
 import { ContentPanel } from './crm/ContentPanel';
 import { MarketingPanel } from './crm/MarketingPanel';
+import { syncMidia } from '../lib/midiaSync';
 import type { AdminUser } from '../types/admin';
 
 interface AdminDashboardProps {
@@ -61,7 +62,8 @@ function exportLeads(leads: Lead[]) {
 
 const CSV_BTN = 'rounded-full border border-white/15 px-4 py-2 font-mono text-[10px] tracking-[0.2em] text-white/60 uppercase transition-colors hover:text-neon-cyan';
 
-const MODULE_ORDER: ModuleKey[] = ['visaogeral', 'pipeline', 'leads', 'clientes', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'marketing', 'historico', 'conteudo', 'config'];
+// "conteudo" saiu da navegação — agora vive dentro de "Configurações".
+const MODULE_ORDER: ModuleKey[] = ['visaogeral', 'pipeline', 'leads', 'clientes', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'marketing', 'historico', 'config'];
 
 export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
   // Equipe enxuta: papel único "Dono" com acesso total.
@@ -70,6 +72,10 @@ export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
 
   const tabs = MODULE_ORDER.filter((m) => can(role, m));
   const [tab, setTab] = useState<ModuleKey>('visaogeral');
+
+  // Sincroniza os clientes com a fábrica de mídia uma vez por sessão,
+  // para que os clientes/entregáveis da Mídia já apareçam no CRM.
+  useEffect(() => { syncMidia().catch(() => {}); }, []);
 
   const handleSignOut = async () => {
     await adminSignOut();
@@ -130,7 +136,6 @@ export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
           {tab === 'agenda' && <AgendaPanel readOnly={false} />}
           {tab === 'financeiro' && <FinanceiroPanel readOnly={false} />}
           {tab === 'historico' && <HistoricoPanel />}
-          {tab === 'conteudo' && <ContentPanel readOnly={false} />}
           {tab === 'marketing' && <MarketingPanel />}
           {tab === 'config' && <SettingsPanel user={user} />}
           {(['clientes', 'propostas', 'tarefas', 'campanhas'] as ModuleKey[]).includes(tab) && (
@@ -473,6 +478,13 @@ function SettingsPanel({ user }: { user: AdminUser }) {
         <h3 className="mb-1 font-display text-lg font-bold text-white">Donos / equipe</h3>
         <p className="mb-4 font-mono text-[11px] text-white/40">Cadastro dos donos do CRM. O login de acesso de cada um é criado no Firebase Authentication.</p>
         <EntityManager schema={SCHEMAS.usuarios} store={STORE_BY_MODULE.usuarios!} />
+      </div>
+
+      {/* Conteúdo do site (antiga aba "Conteúdo", agora dentro de Configurações) */}
+      <div className="glass-panel rounded-2xl p-6">
+        <h3 className="mb-1 font-display text-lg font-bold text-white">Conteúdo do site</h3>
+        <p className="mb-4 font-mono text-[11px] text-white/40">Edite todos os textos do site público (hero, serviços, seções, cards 3D e rodapé). As mudanças publicam ao vivo.</p>
+        <ContentPanel readOnly={false} />
       </div>
     </div>
   );

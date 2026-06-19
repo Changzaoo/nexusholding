@@ -130,6 +130,18 @@ export interface Cliente extends BaseRecord {
   city?: string;
   owner?: string;
   notes?: string;
+  /* ---- vínculo com a fábrica de mídia (Nexus Digital 90), via Nexus Bridge ---- */
+  /** slug do cliente na fábrica de mídia (chave de ligação). */
+  midiaId?: string;
+  /** de onde o cliente nasceu: criado no CRM ou trazido da Mídia. */
+  origin?: 'crm' | 'midia';
+  /** snapshot dos entregáveis/métricas da Mídia (atualizado a cada sync). */
+  midiaEtapas?: number; // etapas concluídas (de 8)
+  midiaMateriais?: number; // nº de materiais gerados
+  midiaAguardando?: number; // itens aguardando aprovação
+  midiaReceita?: number; // receita projetada/mês
+  midiaRoas?: number; // ROAS projetado
+  midiaSyncedAt?: number; // ms da última sincronização
 }
 
 export interface Empresa extends BaseRecord {
