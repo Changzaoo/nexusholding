@@ -118,7 +118,6 @@ export function FinanceiroPanel({ readOnly = false }: { readOnly?: boolean }) {
   // previsão de entrada vinda das propostas
   const aFechar = propostas.filter((p) => p.status === 'enviada').reduce((s, p) => s + p.value, 0); // aguardando resposta
   const aceitasAFaturar = propostas.filter((p) => p.status === 'aceita').reduce((s, p) => s + p.value, 0); // fechadas, ainda sem parcela
-  const previsto = aReceber + aceitasAFaturar + aFechar;
 
   /* ---------------- salvar/excluir ---------------- */
   const mudarStatus = (p: Parcela, status: ParcelaStatus) =>
@@ -141,33 +140,23 @@ export function FinanceiroPanel({ readOnly = false }: { readOnly?: boolean }) {
   );
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      {/* KPIs */}
-      <div className="grid shrink-0 grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      {/* Faixa de indicadores: resultado do mês + previsão de entrada */}
+      <div className="grid shrink-0 grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
         {[
-          { label: `Receita · ${monthLabel(mes)}`, value: moeda(recebidoMes), color: '#22c55e' },
-          { label: `Custos · ${monthLabel(mes)}`, value: moeda(custosMes), color: '#ff5d73' },
-          { label: `Resultado · ${monthLabel(mes)}`, value: moeda(resultadoMes), color: resultadoMes >= 0 ? '#41e8ff' : '#ff5d73' },
-          { label: 'Margem', value: `${margemMes}%`, color: '#8b5cf6' },
+          { label: `Receita ${monthLabel(mes)}`, value: moeda(recebidoMes), color: '#22c55e', sub: undefined as string | undefined },
+          { label: `Custos ${monthLabel(mes)}`, value: moeda(custosMes), color: '#ff5d73', sub: undefined },
+          { label: 'Resultado', value: moeda(resultadoMes), color: resultadoMes >= 0 ? '#41e8ff' : '#ff5d73', sub: `margem ${margemMes}%` },
+          { label: 'A receber', value: moeda(aReceber), color: '#41e8ff', sub: 'contratado' },
+          { label: 'Aceitas', value: moeda(aceitasAFaturar), color: '#22c55e', sub: 'a faturar' },
+          { label: 'A fechar', value: moeda(aFechar), color: '#a3ff6b', sub: 'propostas' },
         ].map((k) => (
-          <div key={k.label} className="glass-panel rounded-2xl p-4">
-            <div className="font-display text-2xl font-bold" style={{ color: k.color }}>{k.value}</div>
-            <div className="mt-1 font-mono text-[9px] tracking-[0.22em] text-white/45 uppercase">{k.label}</div>
+          <div key={k.label} className="glass-panel rounded-xl p-3">
+            <div className="font-display text-lg font-bold lg:text-xl" style={{ color: k.color }}>{k.value}</div>
+            <div className="mt-0.5 truncate font-mono text-[9px] tracking-[0.2em] text-white/45 uppercase">{k.label}</div>
+            {k.sub && <div className="truncate font-mono text-[9px] text-white/35">{k.sub}</div>}
           </div>
         ))}
-      </div>
-
-      {/* Previsão de entrada — quanto dinheiro ainda tem para entrar */}
-      <div className="glass-panel shrink-0 rounded-2xl p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-mono text-[11px] tracking-[0.25em] text-neon-cyan uppercase">Previsão de entrada</h3>
-          <span className="font-display text-lg font-bold text-neon-acid">{moeda(previsto)}</span>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Forecast label="A receber (contratado)" hint="parcelas em aberto" value={aReceber} color="#41e8ff" />
-          <Forecast label="Aceitas a faturar" hint="propostas aceitas sem parcela" value={aceitasAFaturar} color="#22c55e" />
-          <Forecast label="A fechar" hint="propostas enviadas, aguardando" value={aFechar} color="#a3ff6b" />
-        </div>
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
@@ -183,11 +172,10 @@ export function FinanceiroPanel({ readOnly = false }: { readOnly?: boolean }) {
 
       {/* ============================== RESUMO: DRE + Fluxo + Projetos */}
       {view === 'resumo' && (
-        <div className="flex h-full min-h-0 flex-col gap-4">
-          <div className="grid shrink-0 gap-4 lg:grid-cols-2">
-            {/* DRE simplificada */}
-            <div className="glass-panel rounded-2xl p-5">
-              <h3 className="mb-3 font-mono text-[11px] tracking-[0.25em] text-neon-cyan uppercase">DRE simplificada · {monthLabel(mes)}</h3>
+        <div className="grid h-full min-h-0 gap-3 lg:grid-cols-3">
+            {/* DRE simplificada — só em telas grandes */}
+            <div className="glass-panel hidden min-h-0 flex-col overflow-hidden rounded-2xl p-4 lg:flex">
+              <h3 className="mb-3 shrink-0 font-mono text-[11px] tracking-[0.25em] text-neon-cyan uppercase">DRE · {monthLabel(mes)}</h3>
               <DreRow label="Receita bruta" value={recebidoMes} bold />
               {custosPorCategoria.length === 0 ? (
                 <div className="py-1 font-mono text-[11px] text-white/35">Sem custos lançados neste mês.</div>
@@ -199,9 +187,9 @@ export function FinanceiroPanel({ readOnly = false }: { readOnly?: boolean }) {
               <div className="mt-1 text-right font-mono text-[10px] text-white/40">margem {margemMes}%</div>
             </div>
 
-            {/* Fluxo de caixa */}
-            <div className="glass-panel rounded-2xl p-5">
-              <h3 className="mb-3 font-mono text-[11px] tracking-[0.25em] text-neon-cyan uppercase">Fluxo de caixa · 6 meses</h3>
+            {/* Fluxo de caixa — só em telas grandes */}
+            <div className="glass-panel hidden min-h-0 flex-col overflow-hidden rounded-2xl p-4 lg:flex">
+              <h3 className="mb-3 shrink-0 font-mono text-[11px] tracking-[0.25em] text-neon-cyan uppercase">Fluxo · 6 meses</h3>
               <div className="flex flex-col gap-1.5">
                 {fluxo.map((f) => {
                   const max = Math.max(1, ...fluxo.map((x) => Math.max(x.entradas, x.saidas)));
@@ -222,10 +210,9 @@ export function FinanceiroPanel({ readOnly = false }: { readOnly?: boolean }) {
                 <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-neon-magenta/70" /> saídas</span>
               </div>
             </div>
-          </div>
 
           {/* Margem por projeto */}
-          <div className="glass-panel flex min-h-0 flex-1 flex-col rounded-2xl p-4">
+          <div className="glass-panel flex min-h-0 flex-col overflow-hidden rounded-2xl p-4 lg:col-span-1">
             <div className="flex shrink-0 items-center justify-between pb-2">
               <h3 className="font-mono text-[11px] tracking-[0.25em] text-neon-cyan uppercase">Margem por projeto / cliente</h3>
               <span className="font-mono text-[10px] text-white/35">a receber: {moeda(aReceber)}</span>
@@ -352,15 +339,6 @@ export function FinanceiroPanel({ readOnly = false }: { readOnly?: boolean }) {
   );
 }
 
-function Forecast({ label, hint, value, color }: { label: string; hint: string; value: number; color: string }) {
-  return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.02] p-3">
-      <div className="font-display text-xl font-bold" style={{ color }}>{moeda(value)}</div>
-      <div className="mt-0.5 text-sm text-white/70">{label}</div>
-      <div className="font-mono text-[10px] text-white/35">{hint}</div>
-    </div>
-  );
-}
 
 function DreRow({ label, value, bold, color }: { label: string; value: number; bold?: boolean; color?: string }) {
   return (
