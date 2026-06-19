@@ -48,14 +48,11 @@ export const PIPELINE: { value: LeadStatus; label: string; color: string }[] = [
 export const LEAD_STATUSES = PIPELINE;
 
 /* ----------------------------------------------- PAPÉIS e PERMISSÕES */
-export const ROLES = ['admin', 'comercial', 'cliente', 'operador'] as const;
+export const ROLES = ['admin'] as const;
 export type Role = (typeof ROLES)[number];
 
 export const ROLE_LABEL: Record<Role, string> = {
-  admin: 'Administrador',
-  comercial: 'Comercial',
-  cliente: 'Cliente',
-  operador: 'Operador',
+  admin: 'Dono',
 };
 
 export type ModuleKey =
@@ -72,7 +69,9 @@ export type ModuleKey =
   | 'usuarios'
   | 'historico'
   | 'conteudo'
-  | 'marketing';
+  | 'marketing'
+  | 'midias'
+  | 'config';
 
 export const MODULE_LABEL: Record<ModuleKey, string> = {
   visaogeral: 'Visão geral',
@@ -89,14 +88,13 @@ export const MODULE_LABEL: Record<ModuleKey, string> = {
   historico: 'Histórico',
   conteudo: 'Conteúdo',
   marketing: 'Marketing',
+  midias: 'Mídia produzida',
+  config: 'Configurações',
 };
 
 /** Matriz de permissões: quais módulos cada papel acessa. */
 export const ROLE_PERMISSIONS: Record<Role, ModuleKey[]> = {
-  admin: ['visaogeral', 'pipeline', 'leads', 'clientes', 'empresas', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'usuarios', 'historico', 'conteudo', 'marketing'],
-  comercial: ['visaogeral', 'pipeline', 'leads', 'clientes', 'empresas', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'historico', 'marketing'],
-  operador: ['visaogeral', 'leads', 'agenda', 'tarefas', 'historico'],
-  cliente: ['propostas', 'agenda', 'tarefas'],
+  admin: ['visaogeral', 'pipeline', 'leads', 'clientes', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'marketing', 'midias', 'historico', 'conteudo', 'config'],
 };
 
 export function can(role: Role, mod: ModuleKey): boolean {
@@ -126,10 +124,14 @@ export interface Lead extends BaseRecord {
 export interface Cliente extends BaseRecord {
   name: string;
   company?: string;
-  email: string;
+  email?: string;
   phone?: string;
   segment?: string;
+  cnpj?: string;
+  site?: string;
+  city?: string;
   owner?: string;
+  notes?: string;
 }
 
 export interface Empresa extends BaseRecord {
@@ -203,6 +205,25 @@ export interface Historico extends BaseRecord {
   type: 'status' | 'nota' | 'contato' | 'tarefa';
   description: string;
   author?: string;
+}
+
+/**
+ * Mídia/conteúdo produzido pela fábrica (máquina de money) ou pelo painel de
+ * marketing (Nexus Digital 90), espelhado no banco central para aparecer no CRM.
+ * O vínculo com o cliente do CRM é feito pelo campo `crmId`.
+ */
+export type MidiaTipo = 'post' | 'reel' | 'ebook' | 'legenda' | 'outro';
+export type MidiaStatus = 'rascunho' | 'aguardando' | 'aprovado' | 'publicado';
+export interface Midia extends BaseRecord {
+  titulo: string;
+  tipo: MidiaTipo;
+  crmId?: string; // id do cliente/empresa no CRM (a "cola" entre os apps)
+  cliente?: string; // nome legível do cliente/alvo
+  campanhaId?: string; // campanha relacionada (opcional)
+  arquivoUrl?: string; // link do arquivo final (Storage/Netlify/Drive…)
+  status: MidiaStatus;
+  origem?: string; // 'fabrica' | 'nexus-digital-90' | 'manual'
+  notes?: string;
 }
 
 /* ----------------------------------------------- STORE genérico */
@@ -338,6 +359,7 @@ export const usuariosStore = createStore<Usuario>('usuarios');
 export const historicoStore = createStore<Historico>('historico');
 export const agendaStore = createStore<Evento>('agenda');
 export const financeiroStore = createStore<Parcela>('financeiro');
+export const midiasStore = createStore<Midia>('midias');
 
 /** registra um evento no histórico de atendimento. */
 export function logHistorico(
@@ -396,12 +418,16 @@ export const SCHEMAS: Record<string, EntitySchema> = {
     title: 'Clientes',
     singular: 'Cliente',
     fields: [
-      { key: 'name', label: 'Nome', type: 'text', required: true },
-      { key: 'company', label: 'Empresa', type: 'text' },
-      { key: 'email', label: 'E-mail', type: 'email', required: true },
+      { key: 'name', label: 'Nome / Razão social', type: 'text', required: true },
+      { key: 'company', label: 'Empresa / Marca', type: 'text' },
+      { key: 'email', label: 'E-mail', type: 'email' },
       { key: 'phone', label: 'Telefone', type: 'text' },
+      { key: 'cnpj', label: 'CNPJ', type: 'text' },
       segmentField,
+      { key: 'site', label: 'Site', type: 'text' },
+      { key: 'city', label: 'Cidade', type: 'text' },
       { key: 'owner', label: 'Responsável', type: 'text' },
+      { key: 'notes', label: 'Observações', type: 'textarea' },
     ],
   },
   empresas: {
@@ -495,6 +521,43 @@ export const SCHEMAS: Record<string, EntitySchema> = {
       { key: 'leads', label: 'Leads gerados', type: 'number' },
     ],
   },
+  midias: {
+    module: 'midias',
+    title: 'Mídia produzida',
+    singular: 'Mídia',
+    fields: [
+      { key: 'titulo', label: 'Título', type: 'text', required: true },
+      {
+        key: 'tipo',
+        label: 'Tipo',
+        type: 'select',
+        options: [
+          { value: 'post', label: 'Post' },
+          { value: 'reel', label: 'Reel/Vídeo' },
+          { value: 'ebook', label: 'E-book' },
+          { value: 'legenda', label: 'Legenda' },
+          { value: 'outro', label: 'Outro' },
+        ],
+      },
+      { key: 'cliente', label: 'Cliente/Alvo', type: 'text' },
+      { key: 'crmId', label: 'Vínculo CRM (id)', type: 'text' },
+      { key: 'campanhaId', label: 'Campanha (id)', type: 'text' },
+      { key: 'arquivoUrl', label: 'Link do arquivo', type: 'text' },
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: [
+          { value: 'rascunho', label: 'Rascunho', color: '#8fa3c8' },
+          { value: 'aguardando', label: 'Aguardando aprovação', color: '#ffd166' },
+          { value: 'aprovado', label: 'Aprovado', color: '#41e8ff' },
+          { value: 'publicado', label: 'Publicado', color: '#22c55e' },
+        ],
+      },
+      { key: 'origem', label: 'Origem', type: 'text' },
+      { key: 'notes', label: 'Observações', type: 'textarea' },
+    ],
+  },
   usuarios: {
     module: 'usuarios',
     title: 'Usuários',
@@ -520,4 +583,5 @@ export const STORE_BY_MODULE: Partial<Record<ModuleKey, Store<any>>> = {
   tarefas: tarefasStore,
   campanhas: campanhasStore,
   usuarios: usuariosStore,
+  midias: midiasStore,
 };

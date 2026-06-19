@@ -34,20 +34,19 @@ export default function App() {
 
   useEffect(
     () =>
-      watchAuth((u) =>
-        setUser(u ? { uid: u.uid, email: u.email } : null),
-      ),
+      watchAuth((u) => {
+        setUser(u ? { uid: u.uid, email: u.email, displayName: u.displayName } : null);
+        // "manter conectado": se já há sessão e a preferência está ligada, abre o CRM direto.
+        if (u && localStorage.getItem('nexus_keep') !== '0') setDashboardOpen(true);
+      }),
     [],
   );
 
   // login secreto por teclado: e-mail + Enter → senha + Enter → entra direto.
   useSecretKeyboardLogin(async (email, password) => {
-    if (user) {
-      setDashboardOpen(true);
-      return;
-    }
     try {
-      await adminSignIn(email, password);
+      // sempre autentica com quem está digitando agora (corrige o e-mail trocado).
+      await adminSignIn(email, password, localStorage.getItem('nexus_keep') !== '0');
       setDashboardOpen(true);
     } catch {
       // falha silenciosa (credenciais inválidas) — mantém o acesso oculto

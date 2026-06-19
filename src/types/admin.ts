@@ -8,6 +8,7 @@
 export interface AdminUser {
   uid: string;
   email: string | null;
+  displayName: string | null;
 }
 
 /** Conteúdo editável do site — espelha src/data/siteContent.ts */

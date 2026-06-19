@@ -1,26 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import { adminSignOut } from '../lib/firebase';
+import { adminSignOut, updateDisplayName, changePassword, setKeepLogged, isKeepLogged } from '../lib/firebase';
 import { siteContent } from '../data/siteContent';
 import { subscribeLeads, updateLead, deleteLead } from '../lib/leads';
 import {
   PIPELINE,
-  ROLES,
   ROLE_LABEL,
-  ROLE_PERMISSIONS,
   MODULE_LABEL,
   SCHEMAS,
   STORE_BY_MODULE,
   historicoStore,
-  usuariosStore,
   logHistorico,
   exportCSV,
   can,
   type Lead,
   type LeadStatus,
   type ModuleKey,
-  type Role,
   type Historico,
-  type Usuario,
 } from '../lib/crm';
 import { EntityManager } from './EntityManager';
 import { OverviewPanel } from './crm/OverviewPanel';
@@ -66,77 +61,83 @@ function exportLeads(leads: Lead[]) {
 
 const CSV_BTN = 'rounded-full border border-white/15 px-4 py-2 font-mono text-[10px] tracking-[0.2em] text-white/60 uppercase transition-colors hover:text-neon-cyan';
 
-const MODULE_ORDER: ModuleKey[] = ['visaogeral', 'pipeline', 'leads', 'clientes', 'empresas', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'marketing', 'usuarios', 'historico', 'conteudo'];
+const MODULE_ORDER: ModuleKey[] = ['visaogeral', 'pipeline', 'leads', 'clientes', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'marketing', 'midias', 'historico', 'conteudo', 'config'];
 
 export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
-  // papel do usuário logado (busca na tabela de usuários por e-mail) → admin por padrão
-  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-  useEffect(() => usuariosStore.subscribe(setUsuarios), []);
-  const role: Role = useMemo(() => {
-    const me = usuarios.find((u) => u.email?.toLowerCase() === (user.email ?? '').toLowerCase());
-    return me?.role ?? 'admin';
-  }, [usuarios, user.email]);
+  // Equipe enxuta: papel único "Dono" com acesso total.
+  const role = 'admin' as const;
+  const author = user.email ?? user.displayName ?? 'Dono';
 
-  const tabs = useMemo(() => MODULE_ORDER.filter((m) => can(role, m)), [role]);
+  const tabs = MODULE_ORDER.filter((m) => can(role, m));
   const [tab, setTab] = useState<ModuleKey>('visaogeral');
-  useEffect(() => {
-    if (!tabs.includes(tab)) setTab(tabs[0]);
-  }, [tabs, tab]);
 
   const handleSignOut = async () => {
     await adminSignOut();
     onSignOut();
   };
 
+  const navItem = (m: ModuleKey) => (
+    <button
+      key={m}
+      onClick={() => setTab(m)}
+      className={`shrink-0 rounded-lg px-3 py-2 text-left font-mono text-[11px] tracking-[0.16em] whitespace-nowrap uppercase transition-colors ${
+        tab === m ? 'bg-white/12 text-white' : 'text-white/45 hover:bg-white/5 hover:text-white/80'
+      }`}
+    >
+      {MODULE_LABEL[m]}
+    </button>
+  );
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-void" data-lenis-prevent>
+    <div className="fixed inset-0 z-50 flex bg-void" data-lenis-prevent>
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(139,92,246,0.12),transparent_60%)]" />
 
-      <div className="relative mx-auto max-w-6xl px-5 py-10 md:px-8">
-        <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="font-mono text-[10px] tracking-[0.4em] text-neon-cyan uppercase">{siteContent.company}</div>
-            <h1 className="font-display text-4xl font-bold tracking-wide text-white uppercase">CRM Nexus</h1>
-            <p className="mt-1 font-mono text-xs text-white/45">
-              {user.email ?? 'admin'} · <span className="text-neon-cyan">{ROLE_LABEL[role]}</span>
-            </p>
-          </div>
-          <button onClick={handleSignOut} className="pill-button">Sair</button>
-        </header>
-
-        {/* navegação de módulos (filtrada por permissão) */}
-        <nav className="mb-7 flex flex-wrap gap-1.5 rounded-2xl border border-white/10 bg-black/30 p-1.5 backdrop-blur-md">
-          {tabs.map((m) => (
-            <button
-              key={m}
-              onClick={() => setTab(m)}
-              className={`rounded-full px-3.5 py-1.5 font-mono text-[10px] tracking-[0.22em] uppercase transition-colors ${
-                tab === m ? 'bg-white/12 text-white' : 'text-white/45 hover:text-white/80'
-              }`}
-            >
-              {MODULE_LABEL[m]}
-            </button>
-          ))}
+      {/* SIDEBAR (desktop) */}
+      <aside className="relative z-10 hidden w-60 shrink-0 flex-col border-r border-white/10 bg-black/40 backdrop-blur-md md:flex">
+        <div className="border-b border-white/10 px-5 py-5">
+          <div className="font-mono text-[10px] tracking-[0.4em] text-neon-cyan uppercase">{siteContent.company}</div>
+          <div className="font-display text-xl font-bold tracking-wide text-white uppercase">CRM Nexus</div>
+        </div>
+        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
+          {tabs.map(navItem)}
         </nav>
-
-        {tab === 'visaogeral' && <OverviewPanel onGo={(m) => setTab(m as ModuleKey)} />}
-        {tab === 'pipeline' && <PipelinePanel author={user.email ?? 'admin'} />}
-        {tab === 'leads' && <LeadsPanel author={user.email ?? 'admin'} />}
-        {tab === 'agenda' && <AgendaPanel readOnly={role === 'cliente'} />}
-        {tab === 'financeiro' && <FinanceiroPanel readOnly={role === 'cliente'} />}
-        {tab === 'historico' && <HistoricoPanel />}
-        {tab === 'conteudo' && <ContentPanel readOnly={role === 'cliente'} />}
-        {tab === 'marketing' && <MarketingPanel />}
-        {tab === 'usuarios' && (
-          <div className="flex flex-col gap-8">
-            <EntityManager schema={SCHEMAS.usuarios} store={STORE_BY_MODULE.usuarios!} readOnly={role === 'cliente'} />
-            <PermissionsMatrix />
+        <div className="border-t border-white/10 px-4 py-4">
+          <div className="mb-2 min-w-0">
+            <div className="truncate text-sm font-medium text-white">{user.displayName || user.email || 'Dono'}</div>
+            <div className="truncate font-mono text-[10px] text-white/40">{user.email} · {ROLE_LABEL[role]}</div>
           </div>
-        )}
-        {(['clientes', 'empresas', 'propostas', 'tarefas', 'campanhas'] as ModuleKey[]).includes(tab) && (
-          <EntityManager schema={SCHEMAS[tab]} store={STORE_BY_MODULE[tab]!} readOnly={role === 'cliente'} />
-        )}
-      </div>
+          <button onClick={handleSignOut} className="w-full rounded-lg border border-white/15 px-3 py-2 font-mono text-[10px] tracking-[0.2em] text-white/60 uppercase transition-colors hover:border-neon-magenta/40 hover:text-neon-magenta">Sair</button>
+        </div>
+      </aside>
+
+      {/* MAIN */}
+      <main className="relative z-10 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-5xl px-5 py-8 md:px-8">
+          {/* topo mobile: marca + sair + nav horizontal */}
+          <div className="mb-4 flex items-center justify-between md:hidden">
+            <div className="font-display text-xl font-bold tracking-wide text-white uppercase">CRM Nexus</div>
+            <button onClick={handleSignOut} className="rounded-lg border border-white/15 px-3 py-1.5 font-mono text-[10px] tracking-[0.2em] text-white/60 uppercase">Sair</button>
+          </div>
+          <nav className="mb-6 flex gap-1.5 overflow-x-auto pb-1 md:hidden">
+            {tabs.map(navItem)}
+          </nav>
+
+          <h1 className="mb-6 font-display text-3xl font-bold tracking-wide text-white">{MODULE_LABEL[tab]}</h1>
+
+          {tab === 'visaogeral' && <OverviewPanel onGo={(m) => setTab(m as ModuleKey)} />}
+          {tab === 'pipeline' && <PipelinePanel author={author} />}
+          {tab === 'leads' && <LeadsPanel author={author} />}
+          {tab === 'agenda' && <AgendaPanel readOnly={false} />}
+          {tab === 'financeiro' && <FinanceiroPanel readOnly={false} />}
+          {tab === 'historico' && <HistoricoPanel />}
+          {tab === 'conteudo' && <ContentPanel readOnly={false} />}
+          {tab === 'marketing' && <MarketingPanel />}
+          {tab === 'config' && <SettingsPanel user={user} />}
+          {(['clientes', 'propostas', 'tarefas', 'campanhas', 'midias'] as ModuleKey[]).includes(tab) && (
+            <EntityManager schema={SCHEMAS[tab]} store={STORE_BY_MODULE[tab]!} />
+          )}
+        </div>
+      </main>
     </div>
   );
 }
@@ -382,33 +383,96 @@ function HistoricoPanel() {
   );
 }
 
-/* ===================================================== PERMISSÕES (matriz) */
-function PermissionsMatrix() {
-  const mods = Object.keys(MODULE_LABEL) as ModuleKey[];
+/* ===================================================== CONFIGURAÇÕES */
+function SettingsPanel({ user }: { user: AdminUser }) {
+  const [name, setName] = useState(user.displayName ?? '');
+  const [nameMsg, setNameMsg] = useState<string | null>(null);
+  const [curPwd, setCurPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [pwdMsg, setPwdMsg] = useState<string | null>(null);
+  const [keep, setKeep] = useState(isKeepLogged());
+
+  const saveName = async () => {
+    setNameMsg(null);
+    try {
+      await updateDisplayName(name);
+      setNameMsg('Nome atualizado. Recarregue a página para vê-lo em todo o painel.');
+    } catch (e) {
+      setNameMsg((e as Error).message);
+    }
+  };
+
+  const savePwd = async () => {
+    setPwdMsg(null);
+    if (newPwd.length < 6) {
+      setPwdMsg('A nova senha precisa ter ao menos 6 caracteres.');
+      return;
+    }
+    try {
+      await changePassword(curPwd, newPwd);
+      setCurPwd('');
+      setNewPwd('');
+      setPwdMsg('Senha alterada com sucesso.');
+    } catch (e) {
+      const code = (e as { code?: string }).code ?? '';
+      setPwdMsg(
+        code.includes('wrong-password') || code.includes('invalid-credential')
+          ? 'Senha atual incorreta.'
+          : (e as Error).message,
+      );
+    }
+  };
+
+  const toggleKeep = async (v: boolean) => {
+    setKeep(v);
+    await setKeepLogged(v);
+  };
+
+  const LABEL = 'mb-1.5 block font-mono text-[10px] tracking-[0.22em] text-white/45 uppercase';
+  const INPUT = 'w-full rounded-lg border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm text-white outline-none transition-colors focus:border-neon-cyan/60 placeholder:text-white/25';
+
   return (
-    <div className="glass-panel rounded-2xl p-5">
-      <h3 className="mb-4 font-mono text-[11px] tracking-[0.3em] text-white/55 uppercase">Permissões por papel</h3>
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-left">
-          <thead>
-            <tr>
-              <th className="p-2 font-mono text-[10px] tracking-[0.2em] text-white/40 uppercase">Módulo</th>
-              {ROLES.map((r) => <th key={r} className="p-2 text-center font-mono text-[10px] tracking-[0.2em] text-neon-cyan uppercase">{ROLE_LABEL[r]}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {mods.map((m) => (
-              <tr key={m} className="border-t border-white/5">
-                <td className="p-2 text-sm text-white/75">{MODULE_LABEL[m]}</td>
-                {ROLES.map((r) => (
-                  <td key={r} className="p-2 text-center">
-                    {ROLE_PERMISSIONS[r].includes(m) ? <span className="text-neon-acid">✓</span> : <span className="text-white/15">—</span>}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="flex flex-col gap-6">
+      <div className="glass-panel rounded-2xl p-6">
+        <h3 className="mb-1 font-display text-lg font-bold text-white">Sua conta</h3>
+        <p className="mb-4 font-mono text-[11px] text-white/40">{user.email}</p>
+        <label className={LABEL}>Nome de exibição</label>
+        <div className="flex flex-wrap gap-2">
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" className={`${INPUT} flex-1`} />
+          <button onClick={saveName} className="pill-button !px-5 !py-2 text-[11px] !border-neon-cyan/50">Salvar</button>
+        </div>
+        {nameMsg && <p className="mt-2 font-mono text-[11px] text-neon-acid">{nameMsg}</p>}
+      </div>
+
+      <div className="glass-panel rounded-2xl p-6">
+        <h3 className="mb-4 font-display text-lg font-bold text-white">Trocar senha</h3>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className={LABEL}>Senha atual</label>
+            <input type="password" value={curPwd} onChange={(e) => setCurPwd(e.target.value)} className={INPUT} />
+          </div>
+          <div>
+            <label className={LABEL}>Nova senha</label>
+            <input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} className={INPUT} />
+          </div>
+        </div>
+        <button onClick={savePwd} className="pill-button mt-4 !px-5 !py-2 text-[11px] !border-neon-cyan/50">Alterar senha</button>
+        {pwdMsg && <p className="mt-2 font-mono text-[11px] text-neon-acid">{pwdMsg}</p>}
+      </div>
+
+      <div className="glass-panel rounded-2xl p-6">
+        <h3 className="mb-1 font-display text-lg font-bold text-white">Sessão</h3>
+        <label className="mt-3 flex items-center gap-3">
+          <input type="checkbox" checked={keep} onChange={(e) => toggleKeep(e.target.checked)} className="h-4 w-4 accent-neon-cyan" />
+          <span className="text-sm text-white/75">Manter-me conectado neste dispositivo</span>
+        </label>
+        <p className="mt-2 font-mono text-[11px] text-white/40">Ligado: você continua logado mesmo fechando o navegador. Desligue em computadores compartilhados.</p>
+      </div>
+
+      <div className="glass-panel rounded-2xl p-6">
+        <h3 className="mb-1 font-display text-lg font-bold text-white">Donos / equipe</h3>
+        <p className="mb-4 font-mono text-[11px] text-white/40">Cadastro dos donos do CRM. O login de acesso de cada um é criado no Firebase Authentication.</p>
+        <EntityManager schema={SCHEMAS.usuarios} store={STORE_BY_MODULE.usuarios!} />
       </div>
     </div>
   );

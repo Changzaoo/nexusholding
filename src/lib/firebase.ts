@@ -15,6 +15,13 @@ import {
   signInWithEmailAndPassword,
   onAuthStateChanged,
   signOut,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
+  updateProfile,
+  updatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
   type Auth,
   type User,
 } from 'firebase/auth';
@@ -58,11 +65,23 @@ export function getDb(): Firestore | null {
 }
 
 /** Login do admin via e-mail/senha (Firebase Auth). */
-export async function adminSignIn(email: string, password: string): Promise<User> {
+export async function adminSignIn(
+  email: string,
+  password: string,
+  remember = true,
+): Promise<User> {
   if (!isFirebaseConfigured) {
     throw new Error(
       'Firebase não configurado. Preencha as credenciais em src/lib/firebase.ts.',
     );
+  }
+  // "manter conectado": local persiste após fechar o navegador; session só na aba atual.
+  await setPersistence(
+    getFirebaseAuth(),
+    remember ? browserLocalPersistence : browserSessionPersistence,
+  );
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('nexus_keep', remember ? '1' : '0');
   }
   const credential = await signInWithEmailAndPassword(
     getFirebaseAuth(),
@@ -108,4 +127,48 @@ export function watchAuth(callback: (user: User | null) => void): () => void {
 export async function adminSignOut(): Promise<void> {
   if (!isFirebaseConfigured) return;
   await signOut(getFirebaseAuth());
+}
+
+/** Usuário autenticado atual (ou null). */
+export function currentUser(): User | null {
+  if (!isFirebaseConfigured) return null;
+  return getFirebaseAuth().currentUser;
+}
+
+/** Atualiza o nome de exibição do usuário logado. */
+export async function updateDisplayName(name: string): Promise<void> {
+  const u = getFirebaseAuth().currentUser;
+  if (!u) throw new Error('Ninguém autenticado.');
+  await updateProfile(u, { displayName: name.trim() });
+}
+
+/** Troca a senha. O Firebase exige reautenticar com a senha atual antes. */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  const u = getFirebaseAuth().currentUser;
+  if (!u || !u.email) throw new Error('Ninguém autenticado.');
+  const cred = EmailAuthProvider.credential(u.email, currentPassword);
+  await reauthenticateWithCredential(u, cred);
+  await updatePassword(u, newPassword);
+}
+
+/** Liga/desliga "manter conectado" neste dispositivo (vale a partir do próximo login/carregamento). */
+export async function setKeepLogged(remember: boolean): Promise<void> {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('nexus_keep', remember ? '1' : '0');
+  }
+  if (isFirebaseConfigured) {
+    await setPersistence(
+      getFirebaseAuth(),
+      remember ? browserLocalPersistence : browserSessionPersistence,
+    );
+  }
+}
+
+/** Lê a preferência "manter conectado" (padrão: ligado). */
+export function isKeepLogged(): boolean {
+  if (typeof localStorage === 'undefined') return true;
+  return localStorage.getItem('nexus_keep') !== '0';
 }
