@@ -130,6 +130,7 @@ function DadosTab({ cliente, onClose }: { cliente: Cliente; onClose: () => void 
       <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-hidden">
         <div className="col-span-2"><label className={LABEL}>Nome / Razão social</label><input className={INPUT} value={f.name ?? ''} onChange={(e) => set('name', e.target.value)} /></div>
         <div><label className={LABEL}>Empresa / Marca</label><input className={INPUT} value={f.company ?? ''} onChange={(e) => set('company', e.target.value)} /></div>
+        <div><label className={LABEL}>Responsável / Contato</label><input className={INPUT} value={f.owner ?? ''} onChange={(e) => set('owner', e.target.value)} /></div>
         <div><label className={LABEL}>Segmento</label><input className={INPUT} value={f.segment ?? ''} onChange={(e) => set('segment', e.target.value)} /></div>
         <div><label className={LABEL}>E-mail</label><input className={INPUT} value={f.email ?? ''} onChange={(e) => set('email', e.target.value)} /></div>
         <div><label className={LABEL}>Telefone</label><input className={INPUT} value={f.phone ?? ''} onChange={(e) => set('phone', e.target.value)} /></div>

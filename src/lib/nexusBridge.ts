@@ -41,6 +41,8 @@ export interface DashClient {
   id: string;
   nicho: string | null;
   cidade: string | null;
+  telefone: string | null;
+  responsavel: string | null;
   materiais: number;
   aguardandoAprovacao: number;
   etapasConcluidas: number;

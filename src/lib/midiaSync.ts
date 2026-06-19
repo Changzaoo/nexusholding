@@ -59,6 +59,18 @@ function norm(s?: string): string {
 }
 
 /**
+ * Dados cadastrais (telefone/responsável) vindos do briefing da Mídia.
+ * Só preenche o que ainda está VAZIO no CRM — nunca sobrescreve uma edição
+ * manual. Não inclui chaves `undefined` (o Firestore as rejeita).
+ */
+function cadastroMidia(existing: Partial<Cliente> | undefined, d: DashClient): Partial<Cliente> {
+  const out: Partial<Cliente> = {};
+  if (!existing?.phone?.trim() && d.telefone) out.phone = d.telefone;
+  if (!existing?.owner?.trim() && d.responsavel) out.owner = d.responsavel;
+  return out;
+}
+
+/**
  * Métricas/contadores da Mídia projetados nos campos do Cliente.
  * NÃO inclui chaves `undefined` — o Firestore as rejeita e isso derrubaria
  * o store para o modo local (fazendo registros "sumirem" da nuvem).
@@ -114,7 +126,7 @@ export async function syncMidia(): Promise<SyncResult> {
       // 1) já vinculado por midiaId
       const byMidia = crmByMidia.get(d.id);
       if (byMidia) {
-        await clientesStore.update(byMidia.id, snap);
+        await clientesStore.update(byMidia.id, { ...snap, ...cadastroMidia(byMidia, d) });
         res.pulledAtualizados++;
         continue;
       }
@@ -125,6 +137,7 @@ export async function syncMidia(): Promise<SyncResult> {
           ...snap,
           segment: linked.segment || d.nicho || undefined,
           city: linked.city || d.cidade || undefined,
+          ...cadastroMidia(linked, d),
         });
         res.pulledAtualizados++;
         continue;
@@ -132,7 +145,7 @@ export async function syncMidia(): Promise<SyncResult> {
       // 3) já existe um cliente no CRM com o mesmo nome -> vincula (não duplica)
       const byNome = crmByNome.get(norm(d.id)) || crmByNome.get(norm(prettify(d.id)));
       if (byNome) {
-        await clientesStore.update(byNome.id, snap);
+        await clientesStore.update(byNome.id, { ...snap, ...cadastroMidia(byNome, d) });
         res.pulledAtualizados++;
         continue;
       }
@@ -143,6 +156,7 @@ export async function syncMidia(): Promise<SyncResult> {
         city: d.cidade || undefined,
         origin: 'midia',
         ...snap,
+        ...cadastroMidia(undefined, d),
       } as Omit<Cliente, 'id' | 'createdAt'>);
       res.pulledCriados++;
     }
