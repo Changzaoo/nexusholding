@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { campanhasStore, clientesStore, moeda, exportCSV, type Campanha, type CampanhaCanal, type Cliente } from '../../lib/crm';
 import { AutoPaged } from '../AutoPaged';
+import { syncMidia, listEntregaveis, FOLDER_LABEL, type Entregavel } from '../../lib/midiaSync';
+
+type Card = { kind: 'campanha'; c: Campanha } | { kind: 'midia'; cl: Cliente };
 
 const CANAIS: { value: CampanhaCanal; label: string; color: string }[] = [
   { value: 'google', label: 'Google Ads', color: '#41e8ff' },
@@ -47,9 +50,31 @@ export function CampanhasPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [modal, setModal] = useState<Partial<Campanha> | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [entCliente, setEntCliente] = useState<Cliente | null>(null);
+  const [entregaveis, setEntregaveis] = useState<Record<string, Entregavel[]>>({});
+  const [loadingEnt, setLoadingEnt] = useState(false);
 
   useEffect(() => campanhasStore.subscribe(setCampanhas), []);
   useEffect(() => clientesStore.subscribe(setClientes), []);
+
+  const sincronizar = async () => { setSyncing(true); await syncMidia(); setSyncing(false); };
+  const abrirEntregaveis = async (cl: Cliente) => {
+    if (!cl.midiaId) return;
+    setEntCliente(cl);
+    if (!entregaveis[cl.id]) {
+      setLoadingEnt(true);
+      try { const items = await listEntregaveis(cl.midiaId); setEntregaveis((m) => ({ ...m, [cl.id]: items })); }
+      catch { setEntregaveis((m) => ({ ...m, [cl.id]: [] })); }
+      setLoadingEnt(false);
+    }
+  };
+
+  const midiaClientes = clientes.filter((c) => c.midiaId);
+  const cards: Card[] = [
+    ...campanhas.map((c) => ({ kind: 'campanha' as const, c })),
+    ...midiaClientes.map((cl) => ({ kind: 'midia' as const, cl })),
+  ];
 
   const totais = useMemo(() => metrics(sum(campanhas)), [campanhas]);
   const porCanal = useMemo(() =>
@@ -124,10 +149,11 @@ export function CampanhasPanel({ readOnly = false }: { readOnly?: boolean }) {
         </div>
       )}
 
-      {/* lista de campanhas */}
+      {/* lista de campanhas + produção (Mídia) */}
       <div className="flex shrink-0 items-center justify-between">
-        <span className="font-mono text-[10px] tracking-[0.2em] text-white/35 uppercase">{campanhas.length} campanha(s)</span>
+        <span className="font-mono text-[10px] tracking-[0.2em] text-white/35 uppercase">{campanhas.length} campanha(s) · {midiaClientes.length} da mídia</span>
         <div className="flex gap-2">
+          <button onClick={sincronizar} disabled={syncing} className="rounded-full border border-neon-violet/40 px-4 py-2 font-mono text-[10px] tracking-[0.2em] text-neon-violet uppercase transition-colors hover:bg-neon-violet/10 disabled:opacity-50">{syncing ? 'Sincronizando…' : '↻ Mídia'}</button>
           <button onClick={() => exportCSV('campanhas.csv', campanhas.map((c) => { const m = metrics(c); return { ...c, channel: canalMeta(c.channel).label, cpl: m.cpl.toFixed(2), cpa: m.cpa.toFixed(2), roas: m.roas.toFixed(2) }; }), [{ key: 'name', label: 'Campanha' }, { key: 'channel', label: 'Canal' }, { key: 'client', label: 'Cliente' }, { key: 'spend', label: 'Investimento' }, { key: 'leads', label: 'Leads' }, { key: 'sales', label: 'Vendas' }, { key: 'revenue', label: 'Receita' }, { key: 'cpl', label: 'CPL' }, { key: 'roas', label: 'ROAS' }])} className="rounded-full border border-white/15 px-4 py-2 font-mono text-[10px] tracking-[0.2em] text-white/60 uppercase hover:text-neon-cyan">↓ CSV</button>
           {!readOnly && <button onClick={() => setModal({ channel: 'google', status: 'ativa', startDate: todayISO() })} className="pill-button !px-4 !py-2 text-[11px] !border-neon-acid/50">+ Nova campanha</button>}
         </div>
@@ -135,11 +161,35 @@ export function CampanhasPanel({ readOnly = false }: { readOnly?: boolean }) {
 
       <div className="min-h-0 flex-1">
         <AutoPaged
-          items={campanhas}
+          items={cards}
           rowPx={158}
           colMinPx={320}
-          empty={<div className="glass-panel flex h-full items-center justify-center rounded-2xl p-10 text-center font-mono text-xs text-white/40">Nenhuma campanha. Cadastre o investimento e os resultados (Google Ads, Meta Ads…) para acompanhar a captação.</div>}
-          render={(c) => {
+          empty={<div className="glass-panel flex h-full items-center justify-center rounded-2xl p-10 text-center font-mono text-xs text-white/40">Nenhuma campanha. Cadastre investimento/resultados (Google Ads, Meta Ads…) ou sincronize a produção da Mídia.</div>}
+          render={(item) => {
+          if (item.kind === 'midia') {
+            const cl = item.cl;
+            const etapas = cl.midiaEtapas ?? 0;
+            return (
+              <div key={`m-${cl.id}`} className="glass-panel rounded-2xl border border-neon-violet/20 p-5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium text-white">{cl.name}</div>
+                    <div className="mt-0.5 font-mono text-[10px] text-white/40">{[cl.segment, cl.city].filter(Boolean).join(' · ') || 'produção'}</div>
+                  </div>
+                  <span className="shrink-0 rounded-full px-2.5 py-1 font-mono text-[9px] tracking-[0.14em] text-neon-violet uppercase" style={{ background: '#8b5cf61f', border: '1px solid #8b5cf655' }}>◆ Mídia</span>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                  <Metric label="Receita/mês" value={cl.midiaReceita != null ? money(cl.midiaReceita) : '—'} color="#41e8ff" />
+                  <Metric label="ROAS" value={cl.midiaRoas != null ? `${cl.midiaRoas}x` : '—'} />
+                  <Metric label="Materiais" value={num(cl.midiaMateriais ?? 0)} />
+                </div>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-neon-violet" style={{ width: `${Math.round((etapas / 8) * 100)}%` }} /></div>
+                <div className="mt-1 font-mono text-[9px] text-white/35">{etapas}/8 etapas{(cl.midiaAguardando ?? 0) > 0 ? ` · ${cl.midiaAguardando} p/ aprovar` : ''}</div>
+                <button onClick={() => abrirEntregaveis(cl)} className="mt-3 w-full rounded-lg border border-white/12 px-3 py-1.5 font-mono text-[9px] tracking-[0.2em] text-white/55 uppercase transition-colors hover:text-neon-violet">ver entregáveis</button>
+              </div>
+            );
+          }
+          const c = item.c;
           const m = metrics(c);
           const canal = canalMeta(c.channel);
           const st = STATUS.find((s) => s.value === c.status) ?? STATUS[0];
@@ -197,6 +247,31 @@ export function CampanhasPanel({ readOnly = false }: { readOnly?: boolean }) {
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setModal(null)} className="rounded-full border border-white/15 px-4 py-2 font-mono text-[11px] tracking-[0.2em] text-white/60 uppercase hover:text-white">Cancelar</button>
               <button onClick={salvar} className="pill-button !px-4 !py-2 text-[11px]">Salvar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {entCliente && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && setEntCliente(null)}>
+          <div className="glass-panel flex max-h-[80vh] w-full max-w-md flex-col rounded-2xl p-6">
+            <div className="mb-3 flex shrink-0 items-center justify-between">
+              <h3 className="font-display text-xl tracking-wide text-white">Entregáveis · {entCliente.name}</h3>
+              <button onClick={() => setEntCliente(null)} className="font-mono text-white/40 hover:text-white">✕</button>
+            </div>
+            <div className="min-h-0 flex-1">
+              {loadingEnt ? (
+                <div className="font-mono text-[11px] text-white/40">Carregando…</div>
+              ) : entregaveis[entCliente.id]?.length ? (
+                <AutoPaged items={entregaveis[entCliente.id]} rowPx={26} render={(e) => (
+                  <div key={e.folder + e.file} className="flex items-center justify-between gap-2 border-b border-white/5 py-1">
+                    <span className="truncate font-mono text-[11px] text-white/70">{e.file}</span>
+                    <span className="shrink-0 font-mono text-[9px] tracking-[0.15em] text-neon-violet uppercase">{FOLDER_LABEL[e.folder] || e.folder}</span>
+                  </div>
+                )} />
+              ) : (
+                <div className="font-mono text-[11px] text-white/40">Nenhum material gerado ainda.</div>
+              )}
             </div>
           </div>
         </div>

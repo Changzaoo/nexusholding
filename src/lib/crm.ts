@@ -136,6 +136,12 @@ export interface Cliente extends BaseRecord {
   city?: string;
   owner?: string;
   notes?: string;
+  /* ---- dados de projeto (Cliente e Projeto são unificados) ---- */
+  projectStatus?: ProjetoStatus; // andamento do projeto/contrato
+  contractValue?: number; // valor do contrato/fechamento
+  scope?: string; // escopo / serviços contratados
+  startDate?: string; // início (ISO)
+  endDate?: string; // fim previsto (ISO)
   /* ---- vínculo com a fábrica de mídia (Nexus Digital 90), via Nexus Bridge ---- */
   /** slug do cliente na fábrica de mídia (chave de ligação). */
   midiaId?: string;

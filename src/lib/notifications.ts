@@ -17,7 +17,6 @@ import {
   leadsStore,
   financeiroStore,
   propostasStore,
-  conteudosStore,
   tarefasStore,
   agendaStore,
   clientesStore,
@@ -25,7 +24,6 @@ import {
   type Lead,
   type Parcela,
   type Proposta,
-  type ConteudoCliente,
   type Tarefa,
   type Evento,
   type Cliente,
@@ -58,7 +56,7 @@ function readSetFromStorage(): Set<string> {
 
 /** Constrói a lista de notificações a partir do estado das coleções. */
 function build(d: {
-  leads: Lead[]; parcelas: Parcela[]; propostas: Proposta[]; conteudos: ConteudoCliente[];
+  leads: Lead[]; parcelas: Parcela[]; propostas: Proposta[];
   tarefas: Tarefa[]; eventos: Evento[]; clientes: Cliente[];
 }): AppNotification[] {
   const out: AppNotification[] = [];
@@ -81,10 +79,6 @@ function build(d: {
     if (p.status === 'enviada' && now - p.createdAt > 3 * DAY) out.push({ id: `proposta:${p.id}`, module: 'propostas', severity: 'warn', title: 'Proposta aguardando resposta', body: `${p.title} · ${p.client} · ${moeda(p.value)}`, ts: p.createdAt });
     if (p.status === 'aceita') out.push({ id: `proposta-aceita:${p.id}`, module: 'financeiro', severity: 'info', title: 'Proposta aceita — gerar cobrança', body: `${p.title} · ${p.client} · ${moeda(p.value)}`, ts: p.createdAt });
   });
-
-  // Conteúdo aguardando aprovação
-  d.conteudos.filter((c) => c.status === 'aprovacao').forEach((c) =>
-    out.push({ id: `conteudo:${c.id}`, module: 'conteudos', severity: 'warn', title: 'Conteúdo aguardando aprovação', body: [c.title, c.client].filter(Boolean).join(' · '), ts: c.createdAt }));
 
   // Tarefas atrasadas / para hoje
   d.tarefas.filter((t) => !t.done && t.dueDate).forEach((t) => {
@@ -110,7 +104,6 @@ export function useNotifications() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [parcelas, setParcelas] = useState<Parcela[]>([]);
   const [propostas, setPropostas] = useState<Proposta[]>([]);
-  const [conteudos, setConteudos] = useState<ConteudoCliente[]>([]);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -121,7 +114,6 @@ export function useNotifications() {
       leadsStore.subscribe(setLeads),
       financeiroStore.subscribe(setParcelas),
       propostasStore.subscribe(setPropostas),
-      conteudosStore.subscribe(setConteudos),
       tarefasStore.subscribe(setTarefas),
       agendaStore.subscribe(setEventos),
       clientesStore.subscribe(setClientes),
@@ -130,8 +122,8 @@ export function useNotifications() {
   }, []);
 
   const items = useMemo(
-    () => build({ leads, parcelas, propostas, conteudos, tarefas, eventos, clientes }),
-    [leads, parcelas, propostas, conteudos, tarefas, eventos, clientes],
+    () => build({ leads, parcelas, propostas, tarefas, eventos, clientes }),
+    [leads, parcelas, propostas, tarefas, eventos, clientes],
   );
 
   const persist = (s: Set<string>) => {

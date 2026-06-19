@@ -8,21 +8,19 @@ import {
   MODULE_LABEL,
   SCHEMAS,
   STORE_BY_MODULE,
-  historicoStore,
   logHistorico,
   exportCSV,
   can,
   type Lead,
   type LeadStatus,
   type ModuleKey,
-  type Historico,
 } from '../lib/crm';
 import { EntityManager } from './EntityManager';
 import { OverviewPanel } from './crm/OverviewPanel';
 import { AgendaPanel } from './crm/AgendaPanel';
 import { FinanceiroPanel } from './crm/FinanceiroPanel';
 import { ContentPanel } from './crm/ContentPanel';
-import { MarketingPanel } from './crm/MarketingPanel';
+import { ClientesPanel } from './crm/ClientesPanel';
 import { CampanhasPanel } from './crm/CampanhasPanel';
 import { NotificationBell } from './NotificationBell';
 import { Tour } from './Tour';
@@ -68,9 +66,10 @@ function exportLeads(leads: Lead[]) {
 const CSV_BTN = 'rounded-full border border-white/15 px-4 py-2 font-mono text-[10px] tracking-[0.2em] text-white/60 uppercase transition-colors hover:text-neon-cyan';
 
 // "conteudo" saiu da navegação — agora vive dentro de "Configurações".
-// "leads" saiu da navegação — a lista de leads agora vive na "Visão geral"
-// (a aba Pipeline continua sendo o kanban).
-const MODULE_ORDER: ModuleKey[] = ['visaogeral', 'pipeline', 'clientes', 'projetos', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'conteudos', 'marketing', 'historico', 'config'];
+// Menu enxuto: Clientes engloba Projetos (e Propostas/Histórico vivem no
+// detalhe do cliente); Campanhas engloba a produção da Mídia; Conteúdo e
+// Marketing deixaram de ser abas. Leads ficam na Visão geral.
+const MODULE_ORDER: ModuleKey[] = ['visaogeral', 'pipeline', 'clientes', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'config'];
 
 export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
   // Equipe enxuta: papel único "Dono" com acesso total.
@@ -193,15 +192,12 @@ export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
               </div>
             )}
             {tab === 'pipeline' && <div className="h-full overflow-hidden"><PipelinePanel author={author} /></div>}
-            {tab === 'agenda' && <div className="h-full overflow-hidden"><AgendaPanel readOnly={false} /></div>}
+            {tab === 'clientes' && <ClientesPanel />}
+            {tab === 'agenda' && <div className="crm-scroll h-full overflow-y-auto pr-1"><AgendaPanel readOnly={false} /></div>}
             {tab === 'financeiro' && <FinanceiroPanel readOnly={false} />}
-            {tab === 'historico' && <div className="h-full overflow-hidden"><HistoricoPanel /></div>}
-            {tab === 'marketing' && <div className="h-full overflow-hidden"><MarketingPanel /></div>}
-            {tab === 'campanhas' && <div className="h-full overflow-hidden"><CampanhasPanel /></div>}
-            {tab === 'config' && <div className="h-full overflow-hidden"><SettingsPanel user={user} /></div>}
-            {(['clientes', 'propostas', 'tarefas', 'projetos', 'conteudos'] as ModuleKey[]).includes(tab) && (
-              <EntityManager schema={SCHEMAS[tab]} store={STORE_BY_MODULE[tab]!} />
-            )}
+            {tab === 'campanhas' && <CampanhasPanel />}
+            {tab === 'config' && <div className="crm-scroll h-full overflow-y-auto pr-1"><SettingsPanel user={user} /></div>}
+            {tab === 'tarefas' && <EntityManager schema={SCHEMAS.tarefas} store={STORE_BY_MODULE.tarefas!} />}
           </div>
         </div>
       </main>
@@ -459,29 +455,6 @@ function Row({ label, value }: { label: string; value: string }) {
       <dt className="font-mono text-[10px] tracking-[0.2em] text-white/35 uppercase">{label}</dt>
       <dd className="text-right text-white/75 break-all">{value}</dd>
     </div>
-  );
-}
-
-/* ===================================================== HISTÓRICO */
-function HistoricoPanel() {
-  const [items, setItems] = useState<Historico[]>([]);
-  useEffect(() => historicoStore.subscribe(setItems), []);
-  const icon = (t: Historico['type']) => (t === 'status' ? '⟳' : t === 'nota' ? '✎' : t === 'contato' ? '☎' : '◷');
-  return (
-    <AutoPaged
-      items={items}
-      rowPx={64}
-      empty={<div className="glass-panel flex h-full items-center justify-center rounded-2xl p-10 text-center font-mono text-xs text-white/40">Sem registros de atendimento ainda. Mover leads no pipeline gera histórico automático.</div>}
-      render={(h) => (
-        <div key={h.id} className="glass-panel flex items-start gap-3 rounded-xl p-4">
-          <span className="mt-0.5 text-neon-cyan">{icon(h.type)}</span>
-          <div className="min-w-0 flex-1">
-            <div className="text-sm text-white"><span className="font-medium">{h.lead}</span> · <span className="text-white/60">{h.description}</span></div>
-            <div className="mt-0.5 font-mono text-[10px] text-white/35">{h.author ?? 'sistema'} · {fmtDate(h.createdAt)}</div>
-          </div>
-        </div>
-      )}
-    />
   );
 }
 
