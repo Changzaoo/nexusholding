@@ -49,17 +49,29 @@ function prettify(slug: string): string {
   return slug.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).trim();
 }
 
-/** Métricas/contadores da Mídia projetados nos campos do Cliente. */
+/** Normaliza um nome para casamento (sem acentos, só letras/números). */
+function norm(s?: string): string {
+  return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
+}
+
+/**
+ * Métricas/contadores da Mídia projetados nos campos do Cliente.
+ * NÃO inclui chaves `undefined` — o Firestore as rejeita e isso derrubaria
+ * o store para o modo local (fazendo registros "sumirem" da nuvem).
+ */
 function midiaSnapshot(d: DashClient): Partial<Cliente> {
-  return {
+  const snap: Partial<Cliente> = {
     midiaId: d.id,
     midiaEtapas: d.etapasConcluidas,
     midiaMateriais: d.materiais,
     midiaAguardando: d.aguardandoAprovacao,
-    midiaReceita: d.metrics?.receita,
-    midiaRoas: d.metrics?.roas,
     midiaSyncedAt: Date.now(),
   };
+  if (d.metrics) {
+    snap.midiaReceita = d.metrics.receita;
+    snap.midiaRoas = d.metrics.roas;
+  }
+  return snap;
 }
 
 export interface SyncResult {
@@ -83,6 +95,7 @@ export async function syncMidia(): Promise<SyncResult> {
     // índices para casar os dois lados
     const crmById = new Map(crm.map((c) => [c.id, c]));
     const crmByMidia = new Map(crm.filter((c) => c.midiaId).map((c) => [c.midiaId as string, c]));
+    const crmByNome = new Map(crm.filter((c) => c.name?.trim()).map((c) => [norm(c.name), c]));
     const midiaLinkedCrmIds = new Set(dash.map((d) => (d.crmId || '').trim()).filter(Boolean));
     const midiaSlugs = new Set(dash.map((d) => d.id));
 
@@ -107,7 +120,14 @@ export async function syncMidia(): Promise<SyncResult> {
         res.pulledAtualizados++;
         continue;
       }
-      // 3) cliente que só existe na Mídia -> cria no CRM
+      // 3) já existe um cliente no CRM com o mesmo nome -> vincula (não duplica)
+      const byNome = crmByNome.get(norm(d.id)) || crmByNome.get(norm(prettify(d.id)));
+      if (byNome) {
+        await clientesStore.update(byNome.id, snap);
+        res.pulledAtualizados++;
+        continue;
+      }
+      // 4) cliente que só existe na Mídia -> cria no CRM
       await clientesStore.create({
         name: prettify(d.id),
         segment: d.nicho || undefined,

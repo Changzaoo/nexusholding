@@ -25,7 +25,7 @@ import {
   type Auth,
   type User,
 } from 'firebase/auth';
-import { getFirestore, type Firestore } from 'firebase/firestore';
+import { initializeFirestore, type Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyD-jy0zCN6v_I7yR7qBOj8X35MIezTE_n4',
@@ -59,7 +59,10 @@ export function getDb(): Firestore | null {
   if (!isFirebaseConfigured) return null;
   if (!db) {
     getFirebaseAuth(); // garante app inicializado
-    db = getFirestore(app!);
+    // ignoreUndefinedProperties: campos `undefined` são ignorados em vez de
+    // lançarem erro — evita que um create/update falhe e o store caia para
+    // o modo local (o que faria registros "sumirem" da nuvem).
+    db = initializeFirestore(app!, { ignoreUndefinedProperties: true });
   }
   return db;
 }
