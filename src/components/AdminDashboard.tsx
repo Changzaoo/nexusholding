@@ -182,15 +182,9 @@ export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
               acontece AQUI dentro, nunca na página inteira. */}
           <div className="min-h-0 flex-1 overflow-hidden">
             {tab === 'visaogeral' && (
-              <div className="flex h-full min-h-0 flex-col gap-4">
-                <div className="shrink-0">
-                  <OverviewPanel onGo={(m) => setTab(m as ModuleKey)} />
-                </div>
-                <div className="flex min-h-0 flex-1 flex-col">
-                  <h2 className="mb-2 shrink-0 font-mono text-[11px] tracking-[0.3em] text-white/55 uppercase">Leads</h2>
-                  <div className="min-h-0 flex-1"><LeadsPanel author={author} /></div>
-                </div>
-              </div>
+              <OverviewPanel onGo={(m) => setTab(m as ModuleKey)}>
+                <LeadsPanel author={author} />
+              </OverviewPanel>
             )}
             {tab === 'pipeline' && <div className="h-full overflow-hidden"><PipelinePanel author={author} /></div>}
             {tab === 'clientes' && <ClientesPanel />}
