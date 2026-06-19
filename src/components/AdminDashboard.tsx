@@ -64,7 +64,9 @@ function exportLeads(leads: Lead[]) {
 const CSV_BTN = 'rounded-full border border-white/15 px-4 py-2 font-mono text-[10px] tracking-[0.2em] text-white/60 uppercase transition-colors hover:text-neon-cyan';
 
 // "conteudo" saiu da navegação — agora vive dentro de "Configurações".
-const MODULE_ORDER: ModuleKey[] = ['visaogeral', 'pipeline', 'leads', 'clientes', 'projetos', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'conteudos', 'marketing', 'historico', 'config'];
+// "leads" saiu da navegação — a lista de leads agora vive na "Visão geral"
+// (a aba Pipeline continua sendo o kanban).
+const MODULE_ORDER: ModuleKey[] = ['visaogeral', 'pipeline', 'clientes', 'projetos', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'conteudos', 'marketing', 'historico', 'config'];
 
 export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
   // Equipe enxuta: papel único "Dono" com acesso total.
@@ -131,9 +133,16 @@ export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
 
           <h1 className="mb-6 font-display text-3xl font-bold tracking-wide text-white">{MODULE_LABEL[tab]}</h1>
 
-          {tab === 'visaogeral' && <OverviewPanel onGo={(m) => setTab(m as ModuleKey)} />}
+          {tab === 'visaogeral' && (
+            <div className="flex flex-col gap-8">
+              <OverviewPanel onGo={(m) => setTab(m as ModuleKey)} />
+              <div>
+                <h2 className="mb-4 font-display text-2xl font-bold tracking-wide text-white">Leads</h2>
+                <LeadsPanel author={author} />
+              </div>
+            </div>
+          )}
           {tab === 'pipeline' && <PipelinePanel author={author} />}
-          {tab === 'leads' && <LeadsPanel author={author} />}
           {tab === 'agenda' && <AgendaPanel readOnly={false} />}
           {tab === 'financeiro' && <FinanceiroPanel readOnly={false} />}
           {tab === 'historico' && <HistoricoPanel />}

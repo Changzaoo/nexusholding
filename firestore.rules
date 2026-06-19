@@ -1,0 +1,32 @@
+rules_version = '2';
+
+// ============================================================
+//  Regras do Firestore — CRM Nexus (projeto postflow-b893f)
+// ------------------------------------------------------------
+//  Aplique em: Firebase Console -> Firestore Database -> Regras
+//  (cole este conteúdo e publique). Sem isso, o formulário público
+//  de "Raio-X" NÃO consegue gravar leads na nuvem — eles caem só no
+//  navegador do visitante e o admin nunca os vê.
+// ============================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Acesso administrativo total exige login (admin no painel).
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // CAPTAÇÃO PÚBLICA: qualquer visitante (deslogado) pode CRIAR um lead,
+    // mas não pode ler, editar nem apagar. Validação mínima dos campos.
+    match /leads/{leadId} {
+      allow create: if
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.name.size() < 200 &&
+        request.resource.data.email is string &&
+        request.resource.data.status == 'novo' &&
+        request.resource.data.source is string;
+      // read/update/delete continuam exigindo login (regra acima).
+    }
+  }
+}

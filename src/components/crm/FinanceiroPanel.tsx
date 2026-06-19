@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   financeiroStore,
   custosStore,
+  propostasStore,
   moeda,
   exportCSV,
   type Parcela,
   type ParcelaStatus,
   type Custo,
   type CustoCategoria,
+  type Proposta,
 } from '../../lib/crm';
 
 const STATUS: { value: ParcelaStatus; label: string; color: string }[] = [
@@ -53,6 +55,7 @@ type View = 'resumo' | 'parcelas' | 'custos';
 export function FinanceiroPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [parcelas, setParcelas] = useState<Parcela[]>([]);
   const [custos, setCustos] = useState<Custo[]>([]);
+  const [propostas, setPropostas] = useState<Proposta[]>([]);
   const [view, setView] = useState<View>('resumo');
   const [pModal, setPModal] = useState<Partial<Parcela> | null>(null);
   const [cModal, setCModal] = useState<Partial<Custo> | null>(null);
@@ -60,6 +63,7 @@ export function FinanceiroPanel({ readOnly = false }: { readOnly?: boolean }) {
 
   useEffect(() => financeiroStore.subscribe(setParcelas), []);
   useEffect(() => custosStore.subscribe(setCustos), []);
+  useEffect(() => propostasStore.subscribe(setPropostas), []);
 
   // marca parcelas vencidas e não pagas como "atrasado" (visual)
   const rows = useMemo(() => {
@@ -110,6 +114,10 @@ export function FinanceiroPanel({ readOnly = false }: { readOnly?: boolean }) {
   }, [rows, custos]);
 
   const aReceber = rows.filter((p) => p.status !== 'recebido').reduce((s, p) => s + p.value, 0);
+  // previsão de entrada vinda das propostas
+  const aFechar = propostas.filter((p) => p.status === 'enviada').reduce((s, p) => s + p.value, 0); // aguardando resposta
+  const aceitasAFaturar = propostas.filter((p) => p.status === 'aceita').reduce((s, p) => s + p.value, 0); // fechadas, ainda sem parcela
+  const previsto = aReceber + aceitasAFaturar + aFechar;
 
   /* ---------------- salvar/excluir ---------------- */
   const mudarStatus = (p: Parcela, status: ParcelaStatus) =>
@@ -146,6 +154,19 @@ export function FinanceiroPanel({ readOnly = false }: { readOnly?: boolean }) {
             <div className="mt-1 font-mono text-[9px] tracking-[0.22em] text-white/45 uppercase">{k.label}</div>
           </div>
         ))}
+      </div>
+
+      {/* Previsão de entrada — quanto dinheiro ainda tem para entrar */}
+      <div className="glass-panel rounded-2xl p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="font-mono text-[11px] tracking-[0.25em] text-neon-cyan uppercase">Previsão de entrada</h3>
+          <span className="font-display text-lg font-bold text-neon-acid">{moeda(previsto)}</span>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Forecast label="A receber (contratado)" hint="parcelas em aberto" value={aReceber} color="#41e8ff" />
+          <Forecast label="Aceitas a faturar" hint="propostas aceitas sem parcela" value={aceitasAFaturar} color="#22c55e" />
+          <Forecast label="A fechar" hint="propostas enviadas, aguardando" value={aFechar} color="#a3ff6b" />
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -337,6 +358,16 @@ export function FinanceiroPanel({ readOnly = false }: { readOnly?: boolean }) {
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+function Forecast({ label, hint, value, color }: { label: string; hint: string; value: number; color: string }) {
+  return (
+    <div className="rounded-xl border border-white/8 bg-white/[0.02] p-3">
+      <div className="font-display text-xl font-bold" style={{ color }}>{moeda(value)}</div>
+      <div className="mt-0.5 text-sm text-white/70">{label}</div>
+      <div className="font-mono text-[10px] text-white/35">{hint}</div>
     </div>
   );
 }

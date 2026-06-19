@@ -273,9 +273,15 @@ export interface Historico extends BaseRecord {
 }
 
 /* ----------------------------------------------- STORE genérico */
+export interface CreateOpts {
+  /** Não cair para localStorage se a escrita na nuvem falhar — relança o erro.
+   *  Usado em escrita pública (formulário de lead): salvar só no navegador do
+   *  visitante é inútil (o admin nunca veria), então é melhor falhar e avisar. */
+  noLocalFallback?: boolean;
+}
 export interface Store<T extends BaseRecord> {
   subscribe(cb: (items: T[]) => void): () => void;
-  create(data: Omit<T, 'id' | 'createdAt'> & { createdAt?: number }): Promise<void>;
+  create(data: Omit<T, 'id' | 'createdAt'> & { createdAt?: number }, opts?: CreateOpts): Promise<void>;
   update(id: string, patch: Partial<T>): Promise<void>;
   remove(id: string): Promise<void>;
 }
@@ -350,7 +356,7 @@ export function createStore<T extends BaseRecord>(name: string): Store<T> {
       return () => cleanup();
     },
 
-    async create(data) {
+    async create(data, opts) {
       if (!localMode) {
         try {
           await addDoc(collection(getDb()!, name), {
@@ -359,6 +365,8 @@ export function createStore<T extends BaseRecord>(name: string): Store<T> {
           });
           return;
         } catch (e) {
+          // Em escrita pública não escondemos a falha no localStorage do visitante.
+          if (opts?.noLocalFallback) throw e;
           console.warn(`[crm:${name}] create falhou → local`, e);
           localMode = true;
         }

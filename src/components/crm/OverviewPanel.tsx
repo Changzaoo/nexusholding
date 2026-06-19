@@ -4,10 +4,12 @@ import {
   PIPELINE,
   agendaStore,
   financeiroStore,
+  propostasStore,
   moeda,
   type Lead,
   type Evento,
   type Parcela,
+  type Proposta,
 } from '../../lib/crm';
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -28,9 +30,11 @@ export function OverviewPanel({ onGo }: { onGo?: (mod: string) => void }) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [parcelas, setParcelas] = useState<Parcela[]>([]);
+  const [propostas, setPropostas] = useState<Proposta[]>([]);
   useEffect(() => subscribeLeads(setLeads), []);
   useEffect(() => agendaStore.subscribe(setEventos), []);
   useEffect(() => financeiroStore.subscribe(setParcelas), []);
+  useEffect(() => propostasStore.subscribe(setPropostas), []);
 
   const won = leads.filter((l) => l.status === 'fechado').length;
   const conv = leads.length ? Math.round((won / leads.length) * 100) : 0;
@@ -38,6 +42,8 @@ export function OverviewPanel({ onGo }: { onGo?: (mod: string) => void }) {
 
   const aReceber = parcelas.filter((p) => p.status !== 'recebido').reduce((s, p) => s + p.value, 0);
   const atrasado = parcelas.filter((p) => p.status === 'atrasado').reduce((s, p) => s + p.value, 0);
+  // receita a fechar = propostas enviadas (aguardando resposta do cliente)
+  const aFechar = propostas.filter((p) => p.status === 'enviada').reduce((s, p) => s + p.value, 0);
 
   // distribuição do funil (estágios ativos)
   const funil = useMemo(
@@ -59,16 +65,17 @@ export function OverviewPanel({ onGo }: { onGo?: (mod: string) => void }) {
   }, [eventos]);
 
   const cards = [
-    { label: 'Leads totais', value: String(leads.length), color: '#cfe2ff', go: 'leads' },
+    { label: 'Leads totais', value: String(leads.length), color: '#cfe2ff', go: 'pipeline' },
     { label: 'Em aberto', value: String(open), color: '#41e8ff', go: 'pipeline' },
     { label: 'Conversão', value: `${conv}%`, color: '#8b5cf6', go: 'pipeline' },
-    { label: 'A receber', value: moeda(aReceber), color: atrasado > 0 ? '#ff5d73' : '#22c55e', sub: atrasado > 0 ? `${moeda(atrasado)} atrasado` : 'em dia', go: 'financeiro' },
+    { label: 'A receber', value: moeda(aReceber), color: atrasado > 0 ? '#ff5d73' : '#22c55e', sub: atrasado > 0 ? `${moeda(atrasado)} atrasado` : 'contratado', go: 'financeiro' },
+    { label: 'A fechar', value: moeda(aFechar), color: '#a3ff6b', sub: 'propostas enviadas', go: 'financeiro' },
   ];
 
   return (
     <div className="flex flex-col gap-5">
       {/* indicadores */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
         {cards.map((c) => (
           <button
             key={c.label}
