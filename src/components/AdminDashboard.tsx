@@ -61,7 +61,7 @@ function exportLeads(leads: Lead[]) {
 
 const CSV_BTN = 'rounded-full border border-white/15 px-4 py-2 font-mono text-[10px] tracking-[0.2em] text-white/60 uppercase transition-colors hover:text-neon-cyan';
 
-const MODULE_ORDER: ModuleKey[] = ['visaogeral', 'pipeline', 'leads', 'clientes', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'marketing', 'midias', 'historico', 'conteudo', 'config'];
+const MODULE_ORDER: ModuleKey[] = ['visaogeral', 'pipeline', 'leads', 'clientes', 'propostas', 'agenda', 'financeiro', 'tarefas', 'campanhas', 'marketing', 'historico', 'conteudo', 'config'];
 
 export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
   // Equipe enxuta: papel único "Dono" com acesso total.
@@ -133,7 +133,7 @@ export function AdminDashboard({ user, onSignOut }: AdminDashboardProps) {
           {tab === 'conteudo' && <ContentPanel readOnly={false} />}
           {tab === 'marketing' && <MarketingPanel />}
           {tab === 'config' && <SettingsPanel user={user} />}
-          {(['clientes', 'propostas', 'tarefas', 'campanhas', 'midias'] as ModuleKey[]).includes(tab) && (
+          {(['clientes', 'propostas', 'tarefas', 'campanhas'] as ModuleKey[]).includes(tab) && (
             <EntityManager schema={SCHEMAS[tab]} store={STORE_BY_MODULE[tab]!} />
           )}
         </div>
