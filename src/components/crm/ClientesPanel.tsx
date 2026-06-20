@@ -10,6 +10,7 @@ import {
   type ProjetoStatus,
 } from '../../lib/crm';
 import { listEntregaveis, FOLDER_LABEL, type Entregavel } from '../../lib/midiaSync';
+import { entregaRawUrl, entregaDocHtmlUrl, entregaBundleUrl } from '../../lib/nexusBridge';
 import { AutoPaged } from '../AutoPaged';
 
 const PROJ_STATUS: { value: ProjetoStatus; label: string; color: string }[] = [
@@ -243,9 +244,21 @@ function HistoricoTab({ cliente }: { cliente: Cliente }) {
 }
 
 /* ---------------------------------------------- aba Entregáveis (Mídia) */
+const isImg = (f: string) => /\.(svg|png|jpe?g|gif|webp)$/i.test(f);
+const isDoc = (f: string) => /\.md$/i.test(f);
+const fileExt = (f: string) => (f.split('.').pop() || '').toUpperCase();
+const prettyFile = (f: string) =>
+  f.replace(/\.(md|svg|html|png|jpe?g|gif|webp|json)$/i, '').replace(/^BOARD_/, '').replace(/[-_]+/g, ' ').trim();
+const DL_FORMATS: { id: 'pdf' | 'zip' | 'md'; label: string; hint: string }[] = [
+  { id: 'pdf', label: 'PDF', hint: 'Dossiê dos documentos de texto (abre para imprimir/salvar)' },
+  { id: 'zip', label: 'ZIP', hint: 'Todos os arquivos no formato original (artes, páginas e textos)' },
+  { id: 'md', label: 'Markdown', hint: 'Documentos de texto reunidos num único .md' },
+];
+
 function EntregaveisTab({ cliente }: { cliente: Cliente }) {
   const [items, setItems] = useState<Entregavel[] | null>(null);
   const [erro, setErro] = useState(false);
+  const [fmt, setFmt] = useState<'pdf' | 'zip' | 'md'>('pdf');
   useEffect(() => {
     let vivo = true;
     if (!cliente.midiaId) { setItems([]); return; }
@@ -253,21 +266,71 @@ function EntregaveisTab({ cliente }: { cliente: Cliente }) {
     return () => { vivo = false; };
   }, [cliente.midiaId]);
 
+  // materiais reais (esconde os .json de configuração)
+  const visiveis = useMemo(() => (items ?? []).filter((e) => !/\.json$/i.test(e.file)), [items]);
+  const id = cliente.midiaId!;
+
+  const baixarTodos = () => {
+    const lote = visiveis.map(({ folder, file }) => ({ folder, file }));
+    if (!lote.length) return;
+    const url = entregaBundleUrl(id, lote, fmt);
+    if (fmt === 'pdf') {
+      window.open(url, '_blank', 'noopener');
+    } else {
+      const a = document.createElement('a');
+      a.href = url; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove();
+    }
+  };
+
   if (!cliente.midiaId) return <div className="flex h-full items-center justify-center text-center font-mono text-xs text-white/40">Este cliente não está vinculado à fábrica de mídia.</div>;
   if (erro) return <div className="flex h-full items-center justify-center text-center font-mono text-xs text-neon-magenta/80">Não foi possível carregar os entregáveis.</div>;
   if (items === null) return <div className="flex h-full items-center justify-center font-mono text-xs text-white/40">Carregando…</div>;
+
   return (
-    <AutoPaged
-      items={items}
-      rowPx={30}
-      empty={<div className="flex h-full items-center justify-center font-mono text-xs text-white/40">Nenhum material gerado ainda.</div>}
-      render={(e) => (
-        <div key={e.folder + e.file} className="flex items-center justify-between gap-2 border-b border-white/5 py-1.5">
-          <span className="truncate font-mono text-[11px] text-white/70">{e.file}</span>
-          <span className="shrink-0 font-mono text-[9px] tracking-[0.14em] text-neon-violet uppercase">{FOLDER_LABEL[e.folder] || e.folder}</span>
+    <div className="flex h-full flex-col gap-3">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <span className="font-mono text-[10px] text-white/45">{visiveis.length} material(is)</span>
+        <div className="ml-auto flex items-center gap-1">
+          {DL_FORMATS.map((f) => (
+            <button key={f.id} onClick={() => setFmt(f.id)} title={f.hint}
+              className={`rounded-full px-2.5 py-1 font-mono text-[9px] tracking-[0.16em] uppercase transition-colors ${fmt === f.id ? 'bg-white/12 text-white' : 'text-white/45 hover:text-white/80'}`}>{f.label}</button>
+          ))}
         </div>
-      )}
-    />
+        <button onClick={baixarTodos} disabled={!visiveis.length}
+          className="pill-button !px-4 !py-1.5 text-[10px] !border-neon-cyan/50 disabled:opacity-40">↓ Baixar todos</button>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-auto pr-1">
+        {visiveis.length === 0 ? (
+          <div className="flex h-full items-center justify-center font-mono text-xs text-white/40">Nenhum material gerado ainda.</div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+            {visiveis.map((e) => (
+              <div key={e.folder + e.file} className="glass-panel flex flex-col gap-2 rounded-xl p-2.5">
+                <a href={entregaRawUrl(id, e.folder, e.file)} target="_blank" rel="noreferrer"
+                  className="flex aspect-video items-center justify-center overflow-hidden rounded-lg border border-white/5 bg-white/5">
+                  {isImg(e.file)
+                    ? <img src={entregaRawUrl(id, e.folder, e.file)} alt={e.file} loading="lazy" className="h-full w-full object-contain" />
+                    : <span className="font-mono text-base tracking-[0.2em] text-white/35">{fileExt(e.file)}</span>}
+                </a>
+                <div className="min-w-0">
+                  <div className="truncate text-xs font-medium text-white capitalize" title={e.file}>{prettyFile(e.file)}</div>
+                  <div className="truncate font-mono text-[9px] tracking-[0.14em] text-neon-violet uppercase">{FOLDER_LABEL[e.folder] || e.folder}</div>
+                </div>
+                <div className="mt-auto flex gap-1.5">
+                  {isDoc(e.file) && (
+                    <a href={entregaDocHtmlUrl(id, e.folder, e.file)} target="_blank" rel="noreferrer"
+                      className="flex-1 rounded-lg border border-white/10 bg-white/5 py-1 text-center font-mono text-[9px] tracking-[0.14em] text-white/70 uppercase transition-colors hover:border-neon-cyan/50 hover:text-white">PDF</a>
+                  )}
+                  <a href={entregaRawUrl(id, e.folder, e.file, true)}
+                    className="flex-1 rounded-lg border border-white/10 bg-white/5 py-1 text-center font-mono text-[9px] tracking-[0.14em] text-white/70 uppercase transition-colors hover:border-neon-acid/50 hover:text-white">Baixar</a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

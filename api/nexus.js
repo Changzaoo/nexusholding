@@ -24,7 +24,7 @@ export default async function handler(req, res) {
     return res.status(503).json({ error: "integracao nao configurada (defina NEXUS_BRIDGE/NEXUS_BRIDGE_KEY ou NEXUS_API/NEXUS_KEY)" });
   }
 
-  // path = "clients" | "client" | "client/<id>" | "health"
+  // path = "clients" | "client" | "client/<id>" | "client/<id>/raw|doc-html|bundle" | "health"
   const raw = String(req.query.path || "").replace(/^\/+|\/+$/g, "");
   const root = raw.split("/")[0];
   if (!ALLOWED.has(root)) return res.status(400).json({ error: "rota nao permitida" });
@@ -32,10 +32,19 @@ export default async function handler(req, res) {
   // somente leitura + criacao de cliente (sem exclusao)
   if (!["GET", "POST"].includes(req.method)) return res.status(405).json({ error: "metodo nao permitido" });
 
+  // repassa os demais parametros de query (folder, file, items, format, download) para o upstream
+  const extra = new URLSearchParams();
+  for (const [k, v] of Object.entries(req.query)) {
+    if (k === "path") continue;
+    extra.append(k, Array.isArray(v) ? v[0] : String(v));
+  }
+  const qs = extra.toString();
+
   try {
-    const target = useBridge
+    const base = useBridge
       ? `${BRIDGE.replace(/\/+$/, "")}/v1/route/${TARGET}/${raw}`
       : `${API}/api/integration/${raw}`;
+    const target = base + (qs ? `?${qs}` : "");
     const headers = {
       "x-api-key": useBridge ? BRIDGE_KEY : KEY,
       "Content-Type": "application/json",
@@ -43,10 +52,13 @@ export default async function handler(req, res) {
     const init = { method: req.method, headers };
     if (req.method === "POST") init.body = JSON.stringify(req.body || {});
     const r = await fetch(target, init);
-    const text = await r.text();
+    // le como binario para nao corromper imagens/ZIP/PDF (e tambem serve texto/JSON)
+    const buf = Buffer.from(await r.arrayBuffer());
     res.status(r.status);
     res.setHeader("Content-Type", r.headers.get("content-type") || "application/json");
-    res.send(text);
+    const cd = r.headers.get("content-disposition");
+    if (cd) res.setHeader("Content-Disposition", cd);
+    res.send(buf);
   } catch (e) {
     res.status(502).json({ error: "falha ao contatar a integracao: " + e.message });
   }

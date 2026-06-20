@@ -73,3 +73,34 @@ export async function upsertDashClient(input: {
 }) {
   return call("client", { method: "POST", body: JSON.stringify(input) });
 }
+
+/* ----------------------------------------------------------------------------
+ * URLs de entregáveis (miniatura / download / dossiê) — sempre pelo proxy
+ * serverless (/api/nexus), que guarda a chave no servidor. Usadas direto em
+ * <img src> e <a href>/window.open, por isso retornam URL (não fazem fetch).
+ * -------------------------------------------------------------------------- */
+function proxyUrl(path: string, params: Record<string, string> = {}): string {
+  const sp = new URLSearchParams({ path, ...params });
+  return `/api/nexus?${sp.toString()}`;
+}
+
+/** Byte bruto de um material da Mídia (miniatura/preview, ou download se `download`). */
+export function entregaRawUrl(midiaId: string, folder: string, file: string, download = false): string {
+  const p: Record<string, string> = { folder, file };
+  if (download) p.download = '1';
+  return proxyUrl(`client/${midiaId}/raw`, p);
+}
+
+/** Material .md renderizado como documento PDF-ready (abre para imprimir/salvar). */
+export function entregaDocHtmlUrl(midiaId: string, folder: string, file: string): string {
+  return proxyUrl(`client/${midiaId}/doc-html`, { folder, file });
+}
+
+/** Download em lote dos materiais (pdf = dossiê de textos, zip = tudo, md = textos). */
+export function entregaBundleUrl(
+  midiaId: string,
+  items: { folder: string; file: string }[],
+  format: 'pdf' | 'zip' | 'md',
+): string {
+  return proxyUrl(`client/${midiaId}/bundle`, { format, items: JSON.stringify(items) });
+}
