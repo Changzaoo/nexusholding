@@ -105,6 +105,13 @@ export default async function handler(req, res) {
       "x-api-key": useBridge ? BRIDGE_KEY : KEY,
       "Content-Type": "application/json",
     };
+    // Repassa o IP do VISITANTE para a Bridge geolocalizar no globo de
+    // telemetria (o IP que a Bridge veria seria o do servidor da Vercel).
+    if (useBridge) {
+      const clientIp = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim()
+        || req.headers["x-real-ip"] || req.socket?.remoteAddress || "";
+      if (clientIp) headers["x-nexus-client-ip"] = clientIp;
+    }
     const init = { method: req.method, headers, redirect: "manual", signal: ctrl.signal };
     if (req.method === "POST") init.body = JSON.stringify(req.body || {});
     const r = await fetch(target, init);
