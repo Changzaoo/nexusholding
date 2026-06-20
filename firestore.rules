@@ -4,29 +4,72 @@ rules_version = '2';
 //  Regras do Firestore — CRM Nexus (projeto postflow-b893f)
 // ------------------------------------------------------------
 //  Aplique em: Firebase Console -> Firestore Database -> Regras
-//  (cole este conteúdo e publique). Sem isso, o formulário público
-//  de "Raio-X" NÃO consegue gravar leads na nuvem — eles caem só no
-//  navegador do visitante e o admin nunca os vê.
+//  (cole este conteúdo e publique).
+//
+//  ⚠️ ANTES DE PUBLICAR (para não se trancar fora):
+//   1) Confirme que seu e-mail de login está em ADMIN_EMAILS abaixo,
+//      OU crie um doc em /admins/{seu-uid}, OU defina o custom claim
+//      admin=true na sua conta (via Admin SDK).
+//   2) No Firebase Console -> Authentication -> Settings, DESATIVE o
+//      auto-cadastro (signup) de e-mail/senha — só o dono cria contas.
+//      Sem isso, qualquer um cria conta e a checagem de "logado" não
+//      protege nada.
 // ============================================================
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Acesso administrativo total exige login (admin no painel).
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    // --- Autorização real de admin (deny-by-default) -----------------
+    // É admin quem satisfizer QUALQUER uma das condições:
+    //  (a) custom claim admin == true (recomendado; via Admin SDK), ou
+    //  (b) existe um documento em /admins/{uid}, ou
+    //  (c) e-mail verificado presente na allowlist abaixo.
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.admin == true ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (
+          request.auth.token.email_verified == true &&
+          request.auth.token.email in [
+            // 👇  AJUSTE para o(s) e-mail(s) reais de admin antes de publicar
+            'perdibitcoin@gmail.com'
+          ]
+        )
+      );
     }
 
-    // CAPTAÇÃO PÚBLICA: qualquer visitante (deslogado) pode CRIAR um lead,
-    // mas não pode ler, editar nem apagar. Validação mínima dos campos.
+    // Validação do lead público: shape fechado + tamanhos, sem campos extras.
+    function validNewLead() {
+      let d = request.resource.data;
+      return
+        d.keys().hasOnly(['name','company','email','phone','segment','revenue','message','source','status','notes','createdAt']) &&
+        d.name is string && d.name.size() > 0 && d.name.size() < 200 &&
+        d.email is string && d.email.size() > 0 && d.email.size() < 200 &&
+        d.status == 'novo' &&
+        d.source is string && d.source.size() < 60 &&
+        (!('company' in d) || (d.company is string && d.company.size() < 200)) &&
+        (!('phone' in d) || (d.phone is string && d.phone.size() < 60)) &&
+        (!('segment' in d) || (d.segment is string && d.segment.size() < 120)) &&
+        (!('revenue' in d) || (d.revenue is string && d.revenue.size() < 120)) &&
+        (!('message' in d) || (d.message is string && d.message.size() < 5000)) &&
+        (!('notes' in d) || (d.notes is string && d.notes.size() < 5000));
+    }
+
+    // A coleção /admins é a fonte de verdade dos administradores:
+    // ninguém pode ler/escrever por aqui (gerencie pelo Console/Admin SDK).
+    match /admins/{uid} {
+      allow read, write: if false;
+    }
+
+    // CAPTAÇÃO PÚBLICA: visitante deslogado só CRIA um lead validado.
+    // Ler/editar/apagar exige admin.
     match /leads/{leadId} {
-      allow create: if
-        request.resource.data.name is string &&
-        request.resource.data.name.size() > 0 &&
-        request.resource.data.name.size() < 200 &&
-        request.resource.data.email is string &&
-        request.resource.data.status == 'novo' &&
-        request.resource.data.source is string;
-      // read/update/delete continuam exigindo login (regra acima).
+      allow create: if validNewLead();
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Todo o restante: somente admin (lê e escreve).
+    match /{document=**} {
+      allow read, write: if isAdmin();
     }
   }
 }

@@ -88,12 +88,12 @@ function proxyUrl(path: string, params: Record<string, string> = {}): string {
 export function entregaRawUrl(midiaId: string, folder: string, file: string, download = false): string {
   const p: Record<string, string> = { folder, file };
   if (download) p.download = '1';
-  return proxyUrl(`client/${midiaId}/raw`, p);
+  return proxyUrl(`client/${encodeURIComponent(midiaId)}/raw`, p);
 }
 
 /** Material .md renderizado como documento PDF-ready (abre para imprimir/salvar). */
 export function entregaDocHtmlUrl(midiaId: string, folder: string, file: string): string {
-  return proxyUrl(`client/${midiaId}/doc-html`, { folder, file });
+  return proxyUrl(`client/${encodeURIComponent(midiaId)}/doc-html`, { folder, file });
 }
 
 /** Download em lote dos materiais (pdf = dossiê de textos, zip = tudo, md = textos). */
@@ -102,5 +102,5 @@ export function entregaBundleUrl(
   items: { folder: string; file: string }[],
   format: 'pdf' | 'zip' | 'md',
 ): string {
-  return proxyUrl(`client/${midiaId}/bundle`, { format, items: JSON.stringify(items) });
+  return proxyUrl(`client/${encodeURIComponent(midiaId)}/bundle`, { format, items: JSON.stringify(items) });
 }
