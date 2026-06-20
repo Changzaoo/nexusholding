@@ -14,6 +14,7 @@ import {
   getAuth,
   signInWithEmailAndPassword,
   onAuthStateChanged,
+  onIdTokenChanged,
   signOut,
   setPersistence,
   browserLocalPersistence,
@@ -125,6 +126,35 @@ export function watchAuth(callback: (user: User | null) => void): () => void {
     return () => {};
   }
   return onAuthStateChanged(getFirebaseAuth(), callback);
+}
+
+/** ID token atual do admin logado (ou null). Usado para autenticar o proxy. */
+export async function getIdToken(): Promise<string | null> {
+  if (!isFirebaseConfigured) return null;
+  const u = getFirebaseAuth().currentUser;
+  return u ? u.getIdToken() : null;
+}
+
+/** Sincroniza o cookie de sessão httpOnly do proxy com o estado de login.
+ *  Necessário para <img>/<a> dos entregáveis (não enviam header). */
+async function syncSession(user: User | null): Promise<void> {
+  try {
+    if (user) {
+      const token = await user.getIdToken();
+      await fetch('/api/session', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+    } else {
+      await fetch('/api/session', { method: 'DELETE' });
+    }
+  } catch {
+    /* não bloqueia a UI; o proxy ainda aceita Bearer nas chamadas fetch */
+  }
+}
+
+/** Mantém o cookie de sessão do proxy em dia (login, logout e refresh de token,
+ *  que ocorre a cada ~1h). Chamar uma vez no boot do app. */
+export function startSessionSync(): () => void {
+  if (!isFirebaseConfigured) return () => {};
+  return onIdTokenChanged(getFirebaseAuth(), (u) => { void syncSession(u); });
 }
 
 export async function adminSignOut(): Promise<void> {

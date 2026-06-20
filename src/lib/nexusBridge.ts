@@ -15,6 +15,8 @@
  *  use um proxy serverless guardando a chave no servidor.
  * ============================================================
  */
+import { getIdToken } from './firebase';
+
 const API = (import.meta as any).env?.VITE_NEXUS_API || "";
 const KEY = (import.meta as any).env?.VITE_NEXUS_KEY || "";
 // Em produção: usa o proxy serverless /api/nexus (chave só no servidor).
@@ -33,7 +35,13 @@ async function call(path: string, init: RequestInit = {}) {
     ? `${API}/api/integration/${path}`
     : `/api/nexus?path=${encodeURIComponent(path)}`;
   const headers: Record<string, string> = { "Content-Type": "application/json", ...((init.headers as any) || {}) };
-  if (DIRECT) headers["x-api-key"] = KEY;
+  if (DIRECT) {
+    headers["x-api-key"] = KEY;
+  } else {
+    // proxy: autentica o chamador com o ID token do admin (Firebase)
+    const token = await getIdToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+  }
   return j(await fetch(url, { ...init, headers }));
 }
 

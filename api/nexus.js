@@ -15,6 +15,8 @@
 // de ir ao upstream — impede path traversal, route confusion (../ que
 // escaparia do target na Bridge) e IDOR de arquivos arbitrarios.
 
+import { authAdmin, ENFORCE } from "./_auth.js";
+
 // Rotas exatas permitidas. O slug do cliente e restrito a [a-z0-9-].
 const PATH_OK = /^(health|clients|client|client\/[a-z0-9][a-z0-9-]{0,63}(\/(raw|doc-html|bundle))?)$/;
 const SAFE_FOLDER = /^[A-Za-z0-9_()][A-Za-z0-9 _()-]{0,63}$/; // sem "/", "\" nem ".."
@@ -38,6 +40,18 @@ export default async function handler(req, res) {
   }
 
   if (!["GET", "POST"].includes(req.method)) return res.status(405).json({ error: "metodo nao permitido" });
+
+  // --- autenticacao do chamador (admin Firebase) ---
+  // health e publico (checagem de saude). Demais rotas exigem admin quando
+  // ENFORCE_AUTH=true. Em modo transicao (flag off) so registra a ausencia.
+  const rawPath = String(req.query.path || "").replace(/^\/+|\/+$/g, "");
+  if (rawPath !== "health") {
+    const auth = await authAdmin(req);
+    if (!auth.ok) {
+      if (ENFORCE) return res.status(auth.status).json({ error: auth.error });
+      console.warn("[api/nexus] sem auth valida (ENFORCE_AUTH off):", auth.error);
+    }
+  }
 
   // --- valida o PATH inteiro contra a allowlist (nao so o 1o segmento) ---
   const raw = String(req.query.path || "").replace(/^\/+|\/+$/g, "");

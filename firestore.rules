@@ -28,10 +28,9 @@ service cloud.firestore {
         request.auth.token.admin == true ||
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
         (
-          request.auth.token.email_verified == true &&
           request.auth.token.email in [
-            // 👇  AJUSTE para o(s) e-mail(s) reais de admin antes de publicar
-            'perdibitcoin@gmail.com'
+            // 👇  e-mail(s) de admin (com auto-cadastro DESATIVADO no Auth)
+            'vinicius@nexus.com'
           ]
         )
       );

@@ -10,7 +10,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { LeadForm } from './components/LeadForm';
 import { useSecretKeyboardLogin } from './hooks/useSecretKeyboardLogin';
 import { useDeviceProfile } from './hooks/useDeviceProfile';
-import { adminSignIn, watchAuth } from './lib/firebase';
+import { adminSignIn, watchAuth, startSessionSync } from './lib/firebase';
 import { scrollState } from './lib/scrollState';
 import type { AdminUser } from './types/admin';
 
@@ -41,6 +41,10 @@ export default function App() {
       }),
     [],
   );
+
+  // mantém o cookie de sessão do proxy (/api/nexus) em dia: login, logout e
+  // refresh de token. Habilita entregáveis (img/href) autenticados.
+  useEffect(() => startSessionSync(), []);
 
   // login secreto por teclado: e-mail + Enter → senha + Enter → entra direto.
   useSecretKeyboardLogin(async (email, password) => {
