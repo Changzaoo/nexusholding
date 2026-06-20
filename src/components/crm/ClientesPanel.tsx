@@ -278,7 +278,9 @@ function EntregaveisTab({ cliente }: { cliente: Cliente }) {
       window.open(url, '_blank', 'noopener');
     } else {
       const a = document.createElement('a');
-      a.href = url; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove();
+      a.href = url; a.rel = 'noopener';
+      a.download = fmt === 'zip' ? `${id}-materiais.zip` : `${id}-dossie.md`;
+      document.body.appendChild(a); a.click(); a.remove();
     }
   };
 
@@ -322,7 +324,7 @@ function EntregaveisTab({ cliente }: { cliente: Cliente }) {
                     <a href={entregaDocHtmlUrl(id, e.folder, e.file)} target="_blank" rel="noreferrer"
                       className="flex-1 rounded-lg border border-white/10 bg-white/5 py-1 text-center font-mono text-[9px] tracking-[0.14em] text-white/70 uppercase transition-colors hover:border-neon-cyan/50 hover:text-white">PDF</a>
                   )}
-                  <a href={entregaRawUrl(id, e.folder, e.file, true)}
+                  <a href={entregaRawUrl(id, e.folder, e.file, true)} download={e.file}
                     className="flex-1 rounded-lg border border-white/10 bg-white/5 py-1 text-center font-mono text-[9px] tracking-[0.14em] text-white/70 uppercase transition-colors hover:border-neon-acid/50 hover:text-white">Baixar</a>
                 </div>
               </div>
