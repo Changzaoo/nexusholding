@@ -1,0 +1,5 @@
+# Security contact for nexusholding.xyz (RFC 9116)
+Contact: mailto:Redcanidsvinicius@gmail.com
+Expires: 2027-06-20T23:59:59.000Z
+Preferred-Languages: pt-BR, en
+Canonical: https://nexusholding.xyz/.well-known/security.txt
