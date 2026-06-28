@@ -1,0 +1,25 @@
+# Arquivos a ignorar no build Docker
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.DS_Store
+.git/
+.gitignore
+README.md
+*.md
+docker-compose*.yml
+Dockerfile
+nginx/

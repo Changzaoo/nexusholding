@@ -13,6 +13,8 @@ import { useDeviceProfile } from './hooks/useDeviceProfile';
 import { adminSignIn, watchAuth, startSessionSync } from './lib/firebase';
 import { scrollState } from './lib/scrollState';
 import type { AdminUser } from './types/admin';
+// Nexus AI Copilot - Importação desacoplada
+import { useCopilot, FloatingButton, CopilotWindow } from './components/copilot';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -25,6 +27,9 @@ const ExperienceCanvas = lazy(() => import('./scene/ExperienceCanvas'));
 export default function App() {
   const profile = useDeviceProfile();
   const lenisRef = useRef<Lenis | null>(null);
+
+  // ------------------------------------------------ Nexus AI Copilot
+  const copilot = useCopilot();
 
   // ------------------------------------------------ estado do admin
   const [user, setUser] = useState<AdminUser | null>(null);
@@ -162,6 +167,10 @@ export default function App() {
       {dashboardOpen && user && (
         <AdminDashboard user={user} onSignOut={() => setDashboardOpen(false)} />
       )}
+
+      {/* ------------------------------------------ Nexus AI Copilot */}
+      <FloatingButton copilot={copilot} />
+      <CopilotWindow copilot={copilot} />
     </div>
   );
 }

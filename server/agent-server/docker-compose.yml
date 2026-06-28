@@ -1,0 +1,63 @@
+# Nexus AI Agent Server - Docker Compose
+# Uso: docker-compose up -d
+
+services:
+  # =========================================
+  # AGENT SERVER (FastAPI + NVIDIA API)
+  # =========================================
+  agent-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nexus-agent-server
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY}
+      - NVIDIA_MODEL=${NVIDIA_MODEL:-nvidia/llama-3.3-nemotron-70b-instruct}
+      - MAX_TOKENS=${MAX_TOKENS:-2048}
+      - TEMPERATURE=${TEMPERATURE:-0.7}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # =========================================
+  # NGINX (Proxy Reverso + Cache)
+  # =========================================
+  nginx:
+    image: nginx:alpine
+    container_name: nexus-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro  # Certificados SSL
+    depends_on:
+      - agent-server
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+# =========================================
+# REDES
+# =========================================
+networks:
+  default:
+    name: nexus-network
+    driver: bridge
