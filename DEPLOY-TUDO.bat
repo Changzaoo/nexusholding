@@ -3,11 +3,28 @@ REM ================================================
 REM Deploy Completo - Windows para Linux
 REM ================================================
 
-echo Copiando arquivos e executando deploy no servidor...
+echo =========================================
+echo   Deploy Nexus Agent Server
+echo =========================================
 
-REM Copiar arquivos e executar no servidor em um comando
-scp -r server\agent-server\* v@192.168.0.100:/home/v/nexusholding/server/agent-server/ && ssh v@192.168.0.100 "cd /home/v/nexusholding/server/agent-server && chmod +x sync-deploy.sh && ./sync-deploy.sh"
+SET SERVER_IP=192.168.0.100
+SET SERVER_USER=v
+SET SERVER_PATH=/home/v/nexusholding/server/agent-server
 
 echo.
-echo Deploy concluido!
+echo [1/4] Criando estrutura de diretorios no servidor...
+ssh %SERVER_USER%@%SERVER_IP% "mkdir -p %SERVER_PATH%"
+
+echo.
+echo [2/4] Copiando arquivos...
+scp -r server\agent-server\* %SERVER_USER%@%SERVER_IP%:%SERVER_PATH%/
+
+echo.
+echo [3/4] Executando deploy no servidor...
+ssh %SERVER_USER%@%SERVER_IP% "cd %SERVER_PATH% && chmod +x *.sh && ./sync-deploy.sh"
+
+echo.
+echo =========================================
+echo   Deploy concluido!
+echo =========================================
 pause
